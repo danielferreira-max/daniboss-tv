@@ -23,25 +23,45 @@
             padding: 12px 24px; background: #2563eb; color: white; border: none;
             border-radius: 6px; font-weight: bold; cursor: pointer;
         }
+        .btn-sound:hover { background: #1d4ed8; }
 
         /* PAINEL ADMIN */
         #adminPanel {
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background: #1a1a1a; padding: 25px; border-radius: 12px;
-            z-index: 10000; display: none; width: 90%; max-width: 600px;
+            z-index: 10000; display: none; width: 90%; max-width: 800px;
             box-shadow: 0 0 30px rgba(0,0,0,0.8); border: 1px solid #333;
+            max-height: 90vh; overflow-y: auto;
         }
         #adminPanel h2 { margin-top: 0; color: #3b82f6; }
-        .admin-input { width: 100%; padding: 10px; margin: 5px 0; background: #000; border: 1px solid #444; color: white; }
-        .video-list { max-height: 200px; overflow-y: auto; margin: 15px 0; border: 1px solid #333; padding: 10px; }
-        .video-item { display: flex; justify-content: space-between; padding: 5px; border-bottom: 1px solid #222; font-size: 12px; }
-        .btn-del { color: #ff4444; cursor: pointer; }
-        .btn-close { background: #444; color: white; padding: 8px; border: none; cursor: pointer; width: 100%; margin-top: 10px; }
+        .admin-input { width: 100%; padding: 10px; margin: 5px 0; background: #000; border: 1px solid #444; color: white; border-radius: 6px; }
+        .admin-row { display: flex; gap: 10px; margin: 10px 0; flex-wrap: wrap; }
+        .admin-row input { flex: 1; }
+        
+        .video-list { max-height: 300px; overflow-y: auto; margin: 15px 0; border: 1px solid #333; border-radius: 8px; }
+        .video-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #222; font-size: 13px; gap: 10px; flex-wrap: wrap; }
+        .video-item span { flex: 1; }
+        .video-item small { color: #888; font-size: 10px; }
+        .btn-del { background: #dc2626; color: white; padding: 4px 12px; border-radius: 4px; cursor: pointer; border: none; font-size: 12px; }
+        .btn-del:hover { background: #b91c1c; }
+        .btn-edit { background: #eab308; color: #1a1a1a; padding: 4px 12px; border-radius: 4px; cursor: pointer; border: none; font-size: 12px; margin-right: 5px; }
+        .btn-edit:hover { background: #ca8a04; }
+        .btn-close { background: #444; color: white; padding: 10px; border: none; cursor: pointer; width: 100%; margin-top: 10px; border-radius: 6px; }
+        .btn-save-all { background: #22c55e; color: white; padding: 10px; border: none; cursor: pointer; width: 100%; margin-top: 10px; border-radius: 6px; font-weight: bold; }
 
         .prog-table { width: 100%; margin-top: 20px; border-collapse: collapse; }
+        .prog-table td { padding: 10px; border-top: 1px solid #222; }
         .active-row { color: #3b82f6; font-weight: bold; background: rgba(59, 130, 246, 0.1); }
+        .active-row td { border-top-color: #3b82f6; }
         
-        .admin-trigger { position: fixed; bottom: 10px; right: 10px; opacity: 0.2; cursor: pointer; font-size: 10px; }
+        .admin-trigger { position: fixed; bottom: 10px; right: 10px; opacity: 0.3; cursor: pointer; font-size: 10px; background: #1a1a1a; padding: 6px 12px; border-radius: 20px; }
+        .admin-trigger:hover { opacity: 1; }
+        
+        #info { color: #22c55e; margin-bottom: 10px; font-family: monospace; }
+        
+        .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; animation: pulse 1.5s infinite; }
+        .status-live { background: #ef4444; box-shadow: 0 0 5px #ef4444; }
+        @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
     </style>
 </head>
 <body>
@@ -54,7 +74,7 @@
         </div>
         
         <div class="ui-footer">
-            <div id="info" style="color: #22c55e; margin-bottom: 10px;">Sincronizando...</div>
+            <div id="info"><span class="status-dot status-live"></span> Sincronizando...</div>
             <button class="btn-sound" id="soundBtn" onclick="enableAudio()">🔊 ATIVAR SOM</button>
             
             <table class="prog-table">
@@ -65,54 +85,137 @@
 </div>
 
 <div id="adminPanel">
-    <h2>Gestor Daniboss TV</h2>
-    <input type="text" id="newTitle" class="admin-input" placeholder="Título do Vídeo">
-    <input type="text" id="newUrl" class="admin-input" placeholder="URL (YouTube ou .m3u8)">
-    <div style="display:flex; gap: 10px;">
-        <input type="number" id="newStart" class="admin-input" placeholder="Início (seg)">
-        <input type="number" id="newEnd" class="admin-input" placeholder="Fim (seg)">
+    <h2>🎬 GESTOR DANIBOSS TV</h2>
+    <p style="font-size: 12px; color: #888;">Adicione, edite ou remova vídeos da playlist</p>
+    
+    <div class="admin-row">
+        <input type="text" id="newTitle" class="admin-input" placeholder="Título do Vídeo">
+        <input type="text" id="newUrl" class="admin-input" placeholder="URL (YouTube, MP4 ou .m3u8)">
     </div>
-    <button onclick="addVideo()" style="width:100%; padding: 10px; background: #22c55e; border: none; color: white; font-weight: bold; cursor:pointer;">+ ADICIONAR À PLAYLIST</button>
+    <div class="admin-row">
+        <input type="number" id="newStart" class="admin-input" placeholder="Início (segundos)" value="0">
+        <input type="number" id="newEnd" class="admin-input" placeholder="Fim (segundos)" value="300">
+    </div>
+    <button onclick="addVideo()" style="width:100%; padding: 12px; background: #22c55e; border: none; color: white; font-weight: bold; cursor:pointer; border-radius: 6px; margin-bottom: 15px;">+ ADICIONAR À PLAYLIST</button>
     
     <div class="video-list" id="adminVideoList"></div>
+    
+    <button class="btn-save-all" onclick="saveAllChanges()">💾 SALVAR TODAS ALTERAÇÕES</button>
     <button class="btn-close" onclick="toggleAdmin()">FECHAR GESTOR (ESC)</button>
 </div>
 
-<div class="admin-trigger" onclick="toggleAdmin()">ADMIN MODE (Pressione A)</div>
+<div class="admin-trigger" onclick="toggleAdmin()">🔧 ADMIN MODE (Pressione A)</div>
 
 <script>
-// PLAYLIST INICIAL (Caso o localStorage esteja vazio)
+// ==================== PLAYLIST COMPLETA (TODOS OS VÍDEOS) ====================
 const DEFAULT_PLAYLIST = [
-    { url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', title: 'Sinal de Teste', start: 0, end: 300 },
-    { url: 'https://www.youtube.com/watch?v=KSNUugQuweY', title: 'Exemplo YouTube', start: 10, end: 60 }
+    { title: "📡 Demo HLS (5-20s)", url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", start: 5, end: 20 },
+    { title: "🐰 Demo MP4 - Big Buck Bunny", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", start: 0, end: 300 },
+    { title: "🎬 YouTube - Vídeo 1", url: "https://www.youtube.com/watch?v=KSNUugQuweY", start: 0, end: 300 },
+    { title: "🎬 YouTube - Vídeo 2", url: "https://www.youtube.com/watch?v=w-15vFFBnCc", start: 0, end: 300 },
+    { title: "📱 YouTube Shorts (corte 60s)", url: "https://www.youtube.com/shorts/eiB1zk97wNk", start: 0, end: 60 },
+    { title: "📸 Instagram Reel", url: "https://www.instagram.com/reels/DYAP9Vlo0o_/", start: 0, end: 60 },
+    { title: "📱 YouTube Shorts 2", url: "https://www.youtube.com/shorts/xUmYoQpLIuc", start: 0, end: 60 },
+    { title: "📱 YouTube Shorts 3", url: "https://www.youtube.com/shorts/kYfivrUHGP4", start: 0, end: 60 },
+    { title: "🏭 TSMC Q1 2026", url: "https://www.youtube.com/watch?v=ed2cwHEQIDM", start: 0, end: 300 },
+    { title: "📊 TSM Q1 Earnings", url: "https://www.youtube.com/watch?v=jfMKdInpsOQ", start: 0, end: 300 },
+    { title: "🔬 TSMC 2nm Apr2026", url: "https://www.youtube.com/watch?v=zj78dhYtxAM", start: 0, end: 300 },
+    { title: "⚠️ 33 Estratégias (não verificado)", url: "https://www.youtube.com/watch?v=6X4c4Q8gY4o", start: 0, end: 300 },
+    { title: "⚠️ 5 Dicas Negociar (não verificado)", url: "https://www.youtube.com/watch?v=8D_5xY4QJ0A", start: 0, end: 300 },
+    { title: "⚠️ Psicologia Negociação (não verificado)", url: "https://www.youtube.com/watch?v=8f6S8LZg8U4", start: 0, end: 300 },
+    { title: "⚠️ 7 Técnicas Persuasão (não verificado)", url: "https://www.youtube.com/watch?v=2R6yP8x2dJg", start: 0, end: 300 },
+    { title: "⚠️ Evitar Conflitos (não verificado)", url: "https://www.youtube.com/watch?v=6gG2ZZU6H5U", start: 0, end: 300 },
+    { title: "⚠️ Decisão Dados (não verificado)", url: "https://www.youtube.com/watch?v=2q1Y0Vg6z4c", start: 0, end: 300 },
+    { title: "⚠️ Gerenciar Conflitos (não verificado)", url: "https://www.youtube.com/watch?v=Q2D1l6yF3mA", start: 0, end: 300 }
 ];
 
-let playlist = JSON.parse(localStorage.getItem('daniboss_playlist')) || DEFAULT_PLAYLIST;
+// ==================== ESTADO GLOBAL ====================
+let playlist = [];
 let ultimoIndice = -1;
 let audioAtivado = false;
+let activeHls = null;
+let tempoTotal = 0;
+
+// Carregar playlist do localStorage ou usar a padrão
+function loadPlaylist() {
+    const saved = localStorage.getItem('daniboss_playlist');
+    if (saved) {
+        try {
+            playlist = JSON.parse(saved);
+            if (playlist.length === 0) playlist = [...DEFAULT_PLAYLIST];
+        } catch(e) {
+            playlist = [...DEFAULT_PLAYLIST];
+        }
+    } else {
+        playlist = [...DEFAULT_PLAYLIST];
+    }
+    calcularTempoTotal();
+    renderAdminList();
+    renderProgTable();
+}
+
+function calcularTempoTotal() {
+    tempoTotal = 0;
+    playlist.forEach(v => {
+        const duracao = (v.end || 300) - (v.start || 0);
+        tempoTotal += duracao > 0 ? duracao : 300;
+    });
+    if (tempoTotal <= 0) tempoTotal = 1;
+}
 
 function savePlaylist() {
     localStorage.setItem('daniboss_playlist', JSON.stringify(playlist));
+    calcularTempoTotal();
     renderAdminList();
     renderProgTable();
 }
 
 function addVideo() {
-    const title = document.getElementById('newTitle').value;
-    const url = document.getElementById('newUrl').value;
+    const title = document.getElementById('newTitle').value.trim();
+    const url = document.getElementById('newUrl').value.trim();
     const start = parseInt(document.getElementById('newStart').value) || 0;
     const end = parseInt(document.getElementById('newEnd').value) || 300;
 
-    if(title && url) {
+    if (title && url) {
         playlist.push({ title, url, start, end });
         savePlaylist();
-        alert("Vídeo adicionado!");
+        document.getElementById('newTitle').value = '';
+        document.getElementById('newUrl').value = '';
+        document.getElementById('newStart').value = '0';
+        document.getElementById('newEnd').value = '300';
+        alert("✅ Vídeo adicionado com sucesso!");
+    } else {
+        alert("❌ Preencha título e URL!");
     }
 }
 
 function removeVideo(index) {
-    playlist.splice(index, 1);
+    if (confirm(`Remover "${playlist[index].title}" da playlist?`)) {
+        playlist.splice(index, 1);
+        savePlaylist();
+    }
+}
+
+function editVideo(index) {
+    const video = playlist[index];
+    const newTitle = prompt("Editar título:", video.title);
+    if (newTitle !== null) video.title = newTitle;
+    
+    const newUrl = prompt("Editar URL:", video.url);
+    if (newUrl !== null) video.url = newUrl;
+    
+    const newStart = parseInt(prompt("Início (segundos):", video.start)) || 0;
+    video.start = newStart;
+    
+    const newEnd = parseInt(prompt("Fim (segundos):", video.end)) || 300;
+    video.end = newEnd;
+    
     savePlaylist();
+}
+
+function saveAllChanges() {
+    savePlaylist();
+    alert("💾 Playlist salva permanentemente!");
 }
 
 function toggleAdmin() {
@@ -123,94 +226,238 @@ function toggleAdmin() {
 
 function renderAdminList() {
     const list = document.getElementById('adminVideoList');
+    if (playlist.length === 0) {
+        list.innerHTML = '<div style="padding: 20px; text-align: center; color: #888;">Nenhum vídeo na playlist</div>';
+        return;
+    }
+    
     list.innerHTML = playlist.map((v, i) => `
         <div class="video-item">
-            <span>${v.title} (${v.end - v.start}s)</span>
-            <span class="btn-del" onclick="removeVideo(${i})">REMOVER</span>
+            <span><strong>${v.title}</strong><br><small>${v.url.substring(0, 50)}... | ${v.start}s → ${v.end}s</small></span>
+            <div>
+                <button class="btn-edit" onclick="editVideo(${i})">✏️</button>
+                <button class="btn-del" onclick="removeVideo(${i})">🗑️</button>
+            </div>
         </div>
     `).join('');
 }
 
 function renderProgTable() {
     const progBody = document.getElementById('progBody');
+    if (playlist.length === 0) {
+        progBody.innerHTML = '<tr><td style="padding:20px; text-align:center;">Nenhum vídeo na playlist</td></tr>';
+        return;
+    }
+    
     progBody.innerHTML = playlist.map((v, i) => `
         <tr id="prog-${i}">
-            <td style="padding:10px; border-top:1px solid #222;">${i+1}. ${v.title}</td>
+            <td>${i+1}. ${v.title} <span style="color:#666; font-size:11px;">(${v.start}s → ${v.end}s)</span></td>
         </tr>
     `).join('');
 }
 
 function enableAudio() {
     audioAtivado = true;
-    document.getElementById('player').muted = false;
+    const playerEl = document.getElementById('player');
+    playerEl.muted = false;
     document.getElementById('soundBtn').style.display = 'none';
-    ultimoIndice = -1; // Força recarregamento com som
-    updateLiveStream();
+    document.getElementById('info').innerHTML = '<span class="status-dot status-live"></span> 🔈 ÁUDIO ATIVADO';
+    setTimeout(() => {
+        ultimoIndice = -1;
+        updateLiveStream();
+    }, 100);
+}
+
+function detectType(url) {
+    const u = url.toLowerCase();
+    if (u.includes('youtube.com') || u.includes('youtu.be')) return 'youtube';
+    if (u.includes('instagram.com')) return 'instagram';
+    if (u.includes('.m3u8')) return 'hls';
+    return 'mp4';
+}
+
+function getYouTubeId(url) {
+    const patterns = [
+        /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{11,})/,
+        /youtube\.com\/watch\?.*v=([A-Za-z0-9_-]{11,})/
+    ];
+    for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match) return match[1];
+    }
+    return null;
+}
+
+function getInstagramPath(url) {
+    const match = url.match(/instagram\.com\/(reels?|p)\/([^\/?#]+)/i);
+    return match ? `${match[1]}/${match[2]}` : null;
+}
+
+function limparPlayer() {
+    if (activeHls) {
+        try { activeHls.destroy(); } catch(e) {}
+        activeHls = null;
+    }
+    const playerEl = document.getElementById('player');
+    const frameEl = document.getElementById('frame');
+    playerEl.pause();
+    playerEl.src = '';
+    frameEl.src = 'about:blank';
+    frameEl.style.display = 'none';
+    playerEl.style.display = 'block';
+}
+
+async function carregarVideo(video, segundoAtual) {
+    const type = detectType(video.url);
+    const playerEl = document.getElementById('player');
+    const frameEl = document.getElementById('frame');
+    
+    limparPlayer();
+    
+    if (type === 'youtube') {
+        const youtubeId = getYouTubeId(video.url);
+        if (!youtubeId) throw new Error('ID YouTube inválido');
+        
+        const params = new URLSearchParams({
+            autoplay: '1',
+            controls: '0',
+            rel: '0',
+            playsinline: '1'
+        });
+        if (audioAtivado) params.set('mute', '0');
+        else params.set('mute', '1');
+        
+        if (segundoAtual > 0) params.set('start', segundoAtual);
+        
+        frameEl.src = `https://www.youtube.com/embed/${youtubeId}?${params}`;
+        frameEl.style.display = 'block';
+        playerEl.style.display = 'none';
+        return;
+    }
+    
+    if (type === 'instagram') {
+        const instaPath = getInstagramPath(video.url);
+        if (!instaPath) throw new Error('URL Instagram inválida');
+        
+        frameEl.src = `https://www.instagram.com/${instaPath}/embed`;
+        frameEl.style.display = 'block';
+        playerEl.style.display = 'none';
+        return;
+    }
+    
+    // HLS ou MP4
+    playerEl.style.display = 'block';
+    frameEl.style.display = 'none';
+    
+    if (type === 'hls' && Hls && Hls.isSupported()) {
+        if (activeHls) activeHls.destroy();
+        activeHls = new Hls({ debug: false });
+        activeHls.loadSource(video.url);
+        activeHls.attachMedia(playerEl);
+        await new Promise((resolve, reject) => {
+            activeHls.on(Hls.Events.MANIFEST_PARSED, resolve);
+            activeHls.on(Hls.Events.ERROR, (_, data) => {
+                if (data.fatal) reject(data);
+            });
+            setTimeout(() => reject(new Error('Timeout HLS')), 15000);
+        });
+    } else {
+        playerEl.src = video.url;
+        await new Promise((resolve, reject) => {
+            playerEl.onloadedmetadata = resolve;
+            playerEl.onerror = reject;
+            setTimeout(() => reject(new Error('Timeout')), 15000);
+        });
+    }
+    
+    playerEl.currentTime = segundoAtual;
+    playerEl.muted = !audioAtivado;
+    await playerEl.play().catch(e => console.log("Auto-play bloqueado:", e));
 }
 
 function updateLiveStream() {
     if (playlist.length === 0) return;
-
-    const agora = Math.floor(Date.now() / 1000);
     
-    // Cálculo de tempos variáveis
+    const agora = Date.now() / 1000;
     let tempoTotalCiclo = 0;
-    playlist.forEach(v => tempoTotalCiclo += (v.end - v.start));
+    
+    playlist.forEach(v => {
+        const duracao = (v.end || 300) - (v.start || 0);
+        tempoTotalCiclo += duracao > 0 ? duracao : 300;
+    });
+    
+    if (tempoTotalCiclo <= 0) tempoTotalCiclo = 1;
     
     let resto = agora % tempoTotalCiclo;
     let acumulado = 0;
     let indiceAtual = 0;
-    let segundoNoVideoRelativo = 0;
-
+    let segundoNoVideo = 0;
+    
     for (let i = 0; i < playlist.length; i++) {
-        let duracao = playlist[i].end - playlist[i].start;
-        if (resto < acumulado + duracao) {
+        const duracao = (playlist[i].end || 300) - (playlist[i].start || 0);
+        const durValida = duracao > 0 ? duracao : 300;
+        if (resto < acumulado + durValida) {
             indiceAtual = i;
-            segundoNoVideoRelativo = playlist[i].start + (resto - acumulado);
+            segundoNoVideo = (playlist[i].start || 0) + (resto - acumulado);
             break;
         }
-        acumulado += duracao;
+        acumulado += durValida;
     }
-
-    // Atualiza UI
+    
+    // Atualizar UI
     document.querySelectorAll('.prog-table tr').forEach(r => r.classList.remove('active-row'));
-    if(document.getElementById(`prog-${indiceAtual}`)) {
-        document.getElementById(`prog-${indiceAtual}`).classList.add('active-row');
+    const activeRow = document.getElementById(`prog-${indiceAtual}`);
+    if (activeRow) activeRow.classList.add('active-row');
+    
+    const videoAtual = playlist[indiceAtual];
+    if (videoAtual) {
+        document.getElementById('info').innerHTML = `<span class="status-dot status-live"></span> 📺 EM DIRETO: ${videoAtual.title} | ${Math.floor(segundoNoVideo)}s/${videoAtual.end || 300}s`;
     }
-
+    
+    // Mudou de vídeo?
     if (indiceAtual !== ultimoIndice) {
         ultimoIndice = indiceAtual;
-        const video = playlist[indiceAtual];
-        const isYT = video.url.includes('youtube') || video.url.includes('youtu.be');
-        
-        document.getElementById('info').innerText = `[EM DIRETO] ${video.title}`;
-
-        if (isYT) {
-            const id = video.url.match(/(?:v=|be\/)([A-Za-z0-9_-]{11})/)[1];
-            document.getElementById('frame').src = `https://www.youtube.com/embed/${id}?autoplay=1&controls=0&mute=${audioAtivado?0:1}&start=${segundoNoVideoRelativo}`;
-            document.getElementById('frame').style.display = 'block';
-            document.getElementById('player').style.display = 'none';
-            document.getElementById('player').pause();
-        } else {
-            // Lógica para HLS/MP4 (similar à anterior)
-            const p = document.getElementById('player');
-            document.getElementById('frame').style.display = 'none';
-            p.style.display = 'block';
-            p.src = video.url;
-            p.currentTime = segundoNoVideoRelativo;
-            p.play().catch(() => {});
+        carregarVideo(videoAtual, segundoNoVideo).catch(err => {
+            console.error("Erro ao carregar vídeo:", err);
+            document.getElementById('info').innerHTML = `<span class="status-dot status-live"></span> ⚠️ Erro: ${err.message} - pulando...`;
+            setTimeout(() => {
+                ultimoIndice = -1;
+                updateLiveStream();
+            }, 3000);
+        });
+    } else if (document.getElementById('player').style.display !== 'none') {
+        // Sincronizar tempo para vídeos nativos
+        const playerEl = document.getElementById('player');
+        if (!playerEl.paused && Math.abs(playerEl.currentTime - segundoNoVideo) > 2) {
+            playerEl.currentTime = segundoNoVideo;
         }
     }
 }
 
-// Atalho de teclado: tecla 'A' abre admin
+// EVENTOS E INICIALIZAÇÃO
 document.addEventListener('keydown', (e) => {
-    if(e.key.toLowerCase() === 'a') toggleAdmin();
-    if(e.key === 'Escape') document.getElementById('adminPanel').style.display = 'none';
+    if (e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        toggleAdmin();
+    }
+    if (e.key === 'Escape') {
+        document.getElementById('adminPanel').style.display = 'none';
+    }
 });
 
+// Prevenir mute automático do Chrome (interação do usuário)
+document.addEventListener('click', () => {
+    if (!audioAtivado) {
+        const playerEl = document.getElementById('player');
+        if (playerEl && playerEl.muted) {
+            playerEl.muted = false;
+        }
+    }
+});
+
+loadPlaylist();
 setInterval(updateLiveStream, 2000);
-window.onload = () => { renderProgTable(); updateLiveStream(); };
+updateLiveStream();
 </script>
 </body>
 </html>
