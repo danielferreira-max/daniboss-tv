@@ -2,265 +2,244 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<title>Player com Playlist Editável + Shuffle</title>
+<title>DANIBOSS TV - Streaming</title>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <style>
   * { box-sizing: border-box; }
   body {
-    font-family: system-ui, -apple-system, sans-serif;
-    max-width: 1300px;
-    margin: 20px auto;
-    padding: 0 20px;
-    background: #0a0a0a;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background: #050505;
     color: #e5e5e5;
+    overflow-x: hidden;
   }
-  
-  h2 { margin: 0 0 8px 0; color: #fff; display: flex; align-items: center; gap: 12px; }
-  .badge { font-size: 12px; background: #2e2e2e; padding: 4px 12px; border-radius: 20px; font-weight: normal; }
-  
+
+  /* CONTAINER DO PLAYER */
   .player-container {
-    background: #000;
-    border-radius: 16px;
-    overflow: hidden;
-    margin-bottom: 20px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-    position: relative; /* Fundamental para a marca d'água */
-  }
-  #stage {
     position: relative;
     width: 100%;
-    aspect-ratio: 16 / 9;
+    max-width: 1100px;
+    margin: 0 auto 20px auto;
     background: #000;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.8);
+    aspect-ratio: 16 / 9;
   }
-  
-  /* ================== ESTILO DA MARCA D'ÁGUA (MOSCA) ================== */
+
+  /* ESTADO FULLSCREEN PERSONALIZADO */
+  .player-container.fullscreen {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    max-width: none; border-radius: 0; z-index: 9999;
+  }
+
+  #stage { width: 100%; height: 100%; position: relative; }
+
+  /* MARCA D'ÁGUA (MOSCA) - SEMPRE NO TOPO */
   .watermark {
     position: absolute;
-    top: 20px;
-    right: 20px;
-    z-index: 100; /* Garante que fique por cima do vídeo/iframe */
-    opacity: 0.6; /* Semi-transparente estilo TV */
-    pointer-events: none; /* Não interfere nos cliques do player */
+    top: 5%; right: 4%;
+    z-index: 1000;
+    opacity: 0.7;
+    pointer-events: none;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+    transition: opacity 0.3s;
   }
-  .watermark img {
-    height: 35px; /* Tamanho da logo na tela */
-    filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.5));
-  }
+  .watermark img { height: 45px; filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.9)); }
   .live-dot {
-    width: 10px; height: 10px;
-    background: red; border-radius: 50%;
-    box-shadow: 0 0 8px red;
-    animation: blink 1.5s infinite;
+    width: 12px; height: 12px; background: #ff0000;
+    border-radius: 50%; box-shadow: 0 0 10px #ff0000;
+    animation: blink 1.2s infinite;
   }
   @keyframes blink { 0% {opacity:1;} 50% {opacity:0.2;} 100% {opacity:1;} }
-  /* ===================================================================== */
-  
-  #player, #frame {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    border: 0;
-  }
-  #player { object-fit: contain; }
+
+  #player, #frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #000; }
   #frame { display: none; }
-  
+
+  /* INTERFACE */
+  .ui-content { max-width: 1100px; margin: 0 auto; }
   #info {
-    margin: 12px 0; padding: 10px 16px;
-    background: #1a1a1a; border-radius: 10px;
-    font-size: 13px; color: #aaa; font-family: monospace;
-    border-left: 3px solid #3b82f6;
+    background: #111; padding: 12px 20px; border-radius: 8px;
+    font-family: monospace; border-left: 4px solid #3b82f6; margin-bottom: 15px;
   }
+  .controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  button {
+    padding: 10px 20px; border: none; border-radius: 6px;
+    cursor: pointer; font-weight: bold; background: #2563eb; color: #fff;
+  }
+  button:hover { background: #1d4ed8; }
+  button.sec { background: #333; }
   
-  .controls { margin: 15px 0; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-  button { padding: 8px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; transition: all 0.2s ease; }
-  button.primary { background: #3b82f6; color: white; }
-  button.primary:hover { background: #2563eb; transform: scale(1.02); }
-  button.secondary { background: #374151; color: #e5e5e5; }
-  button.secondary:hover { background: #4b5563; }
+  .table-wrapper { background: #111; border-radius: 8px; overflow: hidden; border: 1px solid #222; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: #1a1a1a; padding: 10px; text-align: left; }
+  td { padding: 8px; border-top: 1px solid #222; }
+  input { background: #1a1a1a; border: 1px solid #333; color: #fff; padding: 4px; border-radius: 4px; width: 100%; }
   
-  label.toggle { display: inline-flex; align-items: center; gap: 8px; background: #1a1a1a; padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 14px; }
-  
-  .table-wrapper { max-height: 400px; overflow-y: auto; border-radius: 12px; border: 1px solid #2a2a2a; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; background: #111; }
-  th, td { border: 1px solid #2a2a2a; padding: 8px 6px; }
-  td input { width: 100%; border: 1px solid #3a3a3a; border-radius: 6px; background: #1a1a1a; color: #eee; }
-  
-  tr.active { background: #1e3a5f; animation: pulse 2s infinite; }
-  @keyframes pulse { 0% {opacity:1;} 50% {opacity:0.8;} 100% {opacity:1;} }
-  
-  .status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
-  .status-playing { background: #22c55e; box-shadow: 0 0 5px #22c55e; }
-  .status-paused { background: #6b7280; }
+  tr.active { background: #1e3a5f !important; border-left: 4px solid #3b82f6; }
+
+  /* BOTÃO EXPANDIR */
+  .expand-btn {
+    position: absolute; bottom: 20px; right: 20px;
+    z-index: 1001; background: rgba(0,0,0,0.5);
+    padding: 5px 10px; border-radius: 4px; font-size: 11px;
+    cursor: pointer; border: 1px solid #444; color: #fff;
+  }
 </style>
 </head>
 <body>
 
-<h2>🎬 Daniboss TV <span class="badge">YouTube · MP4 · HLS</span></h2>
+<div class="ui-content">
+  <h2 style="margin-top:0">📺 DANIBOSS TV <span style="font-size:12px; font-weight:normal; opacity:0.5">Streaming Privado</span></h2>
+</div>
 
-<div class="player-container">
+<div class="player-container" id="mainContainer">
   <div id="stage">
     <div class="watermark">
       <div class="live-dot"></div>
-      <img src="daniboss-tv-logo.png" alt="Daniboss TV Logo">
+      <img src="daniboss-tv-logo.png" alt="LOGO">
     </div>
 
-    <video id="player" controls playsinline></video>
-    <iframe id="frame" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>
+    <div class="expand-btn" onclick="toggleFull()">TELA CHEIA (ESC para sair)</div>
+
+    <video id="player" playsinline></video>
+    <iframe id="frame" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>
   </div>
 </div>
 
-<div id="info"><span class="status-dot status-paused"></span> Pronto — clique ▶ Iniciar</div>
+<div class="ui-content">
+  <div id="info">Sintonizando...</div>
 
-<div class="controls">
-  <button id="playBtn" class="primary">▶ Iniciar</button>
-  <button id="prevBtn" class="secondary">⏮ Anterior</button>
-  <button id="nextBtn" class="secondary">⏭ Próximo</button>
-  <label class="toggle"><input type="checkbox" id="shuffleBtn"> 🔀 Shuffle</label>
-</div>
+  <div class="controls">
+    <button id="playBtn">▶ INICIAR CANAL</button>
+    <button class="sec" onclick="prevVideo()">⏮ Anterior</button>
+    <button class="sec" onclick="nextVideo()">⏭ Próximo</button>
+    <label style="font-size:13px; display:flex; align-items:center; gap:5px">
+      <input type="checkbox" id="shuffleBtn" checked> Modo Shuffle (Sem Repetição)
+    </label>
+  </div>
 
-<div class="table-wrapper">
-  <table id="playlistTable">
-    <thead><tr><th style="width:40px">#</th><th>URL</th><th>Tipo</th><th>Início</th><th>Fim</th><th>Nota</th><th>✕</th></tr></thead>
-    <tbody></tbody>
-  </table>
-</div>
-<div style="margin-top:10px; display:flex; gap:10px; justify-content: flex-end;">
-  <button id="addRowBtn" class="secondary">➕ Nova Linha</button>
-  <button id="saveBtn" class="primary">💾 Salvar & Reiniciar</button>
+  <div class="table-wrapper">
+    <table id="playlistTable">
+      <thead>
+        <tr><th>#</th><th>URL do Vídeo</th><th style="width:80px">Início</th><th style="width:80px">Fim</th><th>Nota</th></tr>
+      </thead>
+      <tbody id="playlistBody"></tbody>
+    </table>
+  </div>
+  <p style="font-size:11px; color:#666; margin-top:10px">Nota: YouTube/Instagram rodam via Iframe. Links .m3u8 rodam via HLS nativo.</p>
 </div>
 
 <script>
-// ==================== DOM & ESTADO ====================
 const player = document.getElementById('player');
 const frame = document.getElementById('frame');
-const playBtn = document.getElementById('playBtn');
-const shuffleBtn = document.getElementById('shuffleBtn');
-const infoDiv = document.getElementById('info');
-const tbody = document.querySelector('#playlistTable tbody');
+const info = document.getElementById('info');
+const container = document.getElementById('mainContainer');
 
-let videos = [], order = [], currentPos = 0, activeHls = null, frameTimeout = null, isPlaying = false;
+let videos = [], order = [], currentPos = 0, hls = null, isPlaying = false;
 
-// ==================== PLAYLIST ORIGINAL ====================
-const INITIAL_PLAYLIST = [
-  ['https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', 'hls', '5', '20', 'demo HLS'],
-  ['https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', 'mp4', '', '', 'demo MP4'],
-  ['https://www.youtube.com/watch?v=KSNUugQuweY', 'auto', '', '', 'YouTube'],
-  ['https://www.youtube.com/watch?v=w-15vFFBnCc', 'auto', '', '', 'YouTube'],
-  ['https://www.youtube.com/shorts/eiB1zk97wNk', 'auto', '', '60', 'Short'],
+const INITIAL_DATA = [
+  ['https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', '5', '30', 'Abertura HLS'],
+  ['https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', '', '', 'Curta Metragem'],
+  ['https://www.youtube.com/watch?v=KSNUugQuweY', '', '', 'Clipe YouTube'],
+  ['https://www.youtube.com/shorts/eiB1zk97wNk', '', '60', 'Shorts Vertical']
 ];
 
-// ==================== UTILS ====================
-function setInfo(msg, isErr=false) {
-  infoDiv.innerHTML = `<span class="status-dot ${isPlaying ? 'status-playing' : 'status-paused'}"></span> ${isErr ? '⚠️ ' : ''}${msg}`;
-  infoDiv.style.borderLeftColor = isErr ? '#ef4444' : '#3b82f6';
-}
-function detectType(url) {
-  if (!url) return 'mp4'; const u = url.split('?')[0].toLowerCase();
-  if (u.includes('youtube.com') || u.includes('youtu.be')) return 'youtube';
-  if (u.endsWith('.m3u8')) return 'hls'; return 'mp4';
-}
-function getYouTubeId(url) { const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([A-Za-z0-9_-]{11})/); return match ? match[1] : null; }
-
-// ==================== PLAYBACK CORE ====================
-function clearPlayback() {
-  if (frameTimeout) clearTimeout(frameTimeout);
-  if (activeHls) { activeHls.destroy(); activeHls = null; }
-  player.pause(); player.removeAttribute('src'); player.load();
-  frame.src = 'about:blank'; frame.style.display = 'none'; player.style.display = 'block';
+function toggleFull() {
+  container.classList.toggle('fullscreen');
 }
 
-function buildOrder() {
+document.addEventListener('keydown', (e) => {
+  if (e.key === "Escape") container.classList.remove('fullscreen');
+});
+
+function buildPlaylist() {
+  const rows = document.getElementById('playlistBody');
+  rows.innerHTML = '';
+  videos = INITIAL_DATA.map((v, i) => {
+    rows.innerHTML += `<tr id="row-${i}"><td>${i+1}</td><td><input value="${v[0]}"></td><td><input value="${v[1]}"></td><td><input value="${v[2]}"></td><td><input value="${v[3]}"></td></tr>`;
+    return { url: v[0], start: Number(v[1]), end: Number(v[2]), note: v[3] };
+  });
+  shuffle();
+}
+
+function shuffle() {
   order = videos.map((_, i) => i);
-  if (shuffleBtn.checked) order.sort(() => Math.random() - 0.5);
-  currentPos = 0;
+  if (document.getElementById('shuffleBtn').checked) {
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+  }
 }
 
 async function playCurrent() {
-  if (!videos.length) { setInfo('Playlist vazia!', true); return; }
-  clearPlayback();
-  const currentIdx = order[currentPos];
-  const video = videos[currentIdx];
-  const type = video.type === 'auto' ? detectType(video.url) : video.type;
+  if (hls) { hls.destroy(); hls = null; }
+  clearTimeout(window.ytTimer);
+  
+  const idx = order[currentPos];
+  const video = videos[idx];
+  const isYT = video.url.includes('youtube.com') || video.url.includes('youtu.be');
 
-  // Highlight na tabela
-  document.querySelectorAll('tr.active').forEach(r=>r.classList.remove('active'));
-  tbody.children[currentIdx].classList.add('active');
+  document.querySelectorAll('tr').forEach(r => r.classList.remove('active'));
+  document.getElementById(`row-${idx}`).classList.add('active');
 
-  try {
-    if (type === 'youtube') {
-      const id = getYouTubeId(video.url);
-      if (!id) throw new Error('ID YT inválido');
-      const params = new URLSearchParams({ autoplay: '1', rel: '0', playsinline: '1' });
-      if (video.start) params.set('start', video.start);
-      if (video.end) params.set('end', video.end);
-      frame.src = `https://www.youtube.com/embed/${id}?${params}`;
-      frame.style.display = 'block'; player.style.display = 'none';
-      setInfo(`Daniboss TV > YouTube: ${video.note || id}`);
-      // Timer simples para pular (YT embed não avisa fim nativamente sem API complexa)
-      let dur = 300; if (video.end) dur = video.end - (video.start||0);
-      frameTimeout = setTimeout(() => nextVideo(), dur * 1000 + 3000);
-    } else if (type === 'hls' && Hls.isSupported()) {
-      activeHls = new Hls(); activeHls.loadSource(video.url); activeHls.attachMedia(player);
-      activeHls.on(Hls.Events.MANIFEST_PARSED, () => { if (video.start) player.currentTime = video.start; player.play(); });
-      setInfo(`Daniboss TV > HLS: ${video.note}`);
-    } else { // mp4 nativo
-      player.src = video.url; player.load();
-      player.addEventListener('loadedmetadata', () => { if (video.start) player.currentTime = video.start; player.play(); }, {once:true});
-      setInfo(`Daniboss TV > MP4: ${video.note}`);
+  if (isYT) {
+    const id = video.url.match(/(?:v=|shorts\/|be\/)([A-Za-z0-9_-]{11})/)[1];
+    frame.src = `https://www.youtube.com/embed/${id}?autoplay=1&controls=0&rel=0&start=${video.start || 0}`;
+    frame.style.display = 'block'; player.style.display = 'none';
+    info.innerText = `[TV] EM EXIBIÇÃO: ${video.note || 'YouTube'}`;
+    // Simula fim do vídeo após 5 min ou tempo definido
+    let time = video.end ? (video.end - video.start) : 300;
+    window.ytTimer = setTimeout(nextVideo, time * 1000);
+  } else {
+    frame.style.display = 'none'; player.style.display = 'block';
+    if (video.url.includes('.m3u8')) {
+      if (Hls.isSupported()) {
+        hls = new Hls(); hls.loadSource(video.url); hls.attachMedia(player);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => { if(video.start) player.currentTime = video.start; player.play(); });
+      }
+    } else {
+      player.src = video.url;
+      player.onloadedmetadata = () => { if(video.start) player.currentTime = video.start; player.play(); };
     }
-    isPlaying = true; playBtn.textContent = '⏸ Pausar';
-  } catch (e) { setInfo(`Erro: ${e.message}`, true); setTimeout(()=>nextVideo(), 3000); }
+    info.innerText = `[TV] EM EXIBIÇÃO: ${video.note || 'MP4/HLS'}`;
+  }
+  isPlaying = true;
 }
 
-function nextVideo() { if (!videos.length) return; currentPos = (currentPos + 1) % order.length; playCurrent(); }
-function prevVideo() { if (!videos.length) return; currentPos = (currentPos - 1 + order.length) % order.length; playCurrent(); }
+function nextVideo() {
+  currentPos = (currentPos + 1) % order.length;
+  if (currentPos === 0) shuffle(); // Re-embaralha ao fim do ciclo
+  playCurrent();
+}
 
-player.addEventListener('timeupdate', () => {
-  const video = videos[order[currentPos]];
-  if (video.end && player.currentTime >= video.end) { player.pause(); nextVideo(); }
-});
+function prevVideo() {
+  currentPos = (currentPos - 1 + order.length) % order.length;
+  playCurrent();
+}
+
+// GARANTIA DE CONTINUIDADE 24/7
 player.addEventListener('ended', nextVideo);
+player.addEventListener('error', () => setTimeout(nextVideo, 2000));
 
-// ==================== GESTÃO DA TABELA ====================
-function renderRow(v, i) {
-  return `<tr>
-    <td>${i+1}</td>
-    <td><input type="text" value="${v[0]}" placeholder="URL"></td>
-    <td><select><option value="auto" ${v[1]=='auto'?'selected':''}>Auto</option><option value="youtube">YT</option><option value="hls">HLS</option><option value="mp4">MP4</option></select></td>
-    <td><input type="number" value="${v[2]}" style="width:50px"></td>
-    <td><input type="number" value="${v[3]}" style="width:50px"></td>
-    <td><input type="text" value="${v[4]}"></td>
-    <td><button onclick="this.closest('tr').remove()" style="padding: 2px 6px; background:#dc2626; color:white">✕</button></td>
-  </tr>`;
-}
-function addRow(data=['','auto','','','']) { tbody.insertAdjacentHTML('beforeend', renderRow(data, tbody.children.length)); }
-function readTable() {
-  videos = [];
-  tbody.querySelectorAll('tr').forEach(tr => {
-    const inputs = tr.querySelectorAll('input, select');
-    const url = inputs[0].value.trim();
-    if (url) videos.push({ url, type: inputs[1].value, start: Number(inputs[2].value), end: Number(inputs[3].value), note: inputs[4].value });
-  });
-}
+// Tenta manter o play se o navegador pausar sozinho
+setInterval(() => {
+  if (isPlaying && player.paused && frame.style.display === 'none') {
+    player.play().catch(() => { player.muted = true; player.play(); });
+  }
+}, 5000);
 
-// ==================== EVENTOS ====================
-playBtn.addEventListener('click', () => { if (player.paused && player.src) { player.play(); isPlaying=true; } else if (isPlaying) { player.pause(); isPlaying=false; } else { playCurrent(); } });
-document.getElementById('nextBtn').addEventListener('click', nextVideo);
-document.getElementById('prevBtn').addEventListener('click', prevVideo);
-document.getElementById('addRowBtn').addEventListener('click', () => addRow());
-document.getElementById('saveBtn').addEventListener('click', () => { readTable(); buildOrder(); playCurrent(); });
-shuffleBtn.addEventListener('change', () => { buildOrder(); playCurrent(); });
+document.getElementById('playBtn').onclick = () => {
+  if (!isPlaying) { playCurrent(); document.getElementById('playBtn').innerText = "⏸ CANAL NO AR"; }
+};
 
-// ==================== INIT ====================
-INITIAL_PLAYLIST.forEach(v => addRow(v));
-readTable();
-buildOrder();
-setInfo(`Daniboss TV pronta com ${videos.length} vídeos. Clique ▶ Iniciar.`);
-
+window.onload = buildPlaylist;
 </script>
+
 </body>
 </html>
