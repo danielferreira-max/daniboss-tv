@@ -1,0 +1,453 @@
+import React, { useState, useEffect, useRef } from 'react';
+import Hls from 'hls.js';
+import { 
+  VideoItem, 
+  VideoType, 
+  detectType, 
+  getYouTubeId, 
+  getInstagramPath 
+} from './utils/videoHelpers';
+
+const INITIAL_PLAYLIST: VideoItem[] = [
+  { url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', type: 'hls', start: 5, end: 20, note: 'demo HLS (5-20s)' },
+  { url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', type: 'mp4', start: null, end: null, note: 'demo MP4' },
+  { url: 'https://www.youtube.com/watch?v=KSNUugQuweY', type: 'auto', start: null, end: null, note: 'YouTube' },
+  { url: 'https://www.youtube.com/watch?v=w-15vFFBnCc', type: 'auto', start: null, end: null, note: 'YouTube' },
+  { url: 'https://www.youtube.com/shorts/eiB1zk97wNk', type: 'auto', start: null, end: 60, note: 'Short com corte 60s' },
+  { url: 'https://www.instagram.com/reels/DYAP9Vlo0o_/', type: 'auto', start: null, end: 60, note: 'IG Reel (pode bloquear)' },
+  { url: 'https://www.youtube.com/shorts/xUmYoQpLIuc', type: 'auto', start: null, end: 60, note: 'Short' },
+  { url: 'https://www.youtube.com/shorts/kYfivrUHGP4', type: 'auto', start: null, end: 60, note: 'Short' },
+  { url: 'https://www.youtube.com/watch?v=ed2cwHEQIDM', type: 'auto', start: null, end: null, note: 'TSMC Q1 2026 (3rd-party)' },
+  { url: 'https://www.youtube.com/watch?v=jfMKdInpsOQ', type: 'auto', start: null, end: null, note: 'TSM Q1 Earnings (3rd-party)' },
+  { url: 'https://www.youtube.com/watch?v=zj78dhYtxAM', type: 'auto', start: null, end: null, note: 'TSMC 2nm Apr2026 (3rd-party)' },
+  { url: 'https://www.youtube.com/watch?v=6X4c4Q8gY4o', type: 'auto', start: null, end: null, note: '⚠ ID não verificado: 33 Estratégias' },
+  { url: 'https://www.youtube.com/watch?v=8D_5xY4QJ0A', type: 'auto', start: null, end: null, note: '⚠ ID não verificado: 5 Dicas Negociar' },
+  { url: 'https://www.youtube.com/watch?v=8f6S8LZg8U4', type: 'auto', start: null, end: null, note: '⚠ ID não verificado: Psicologia Negociação' },
+  { url: 'https://www.youtube.com/watch?v=2R6yP8x2dJg', type: 'auto', start: null, end: null, note: '⚠ ID não verificado: 7 Técnicas Persuasão' },
+  { url: 'https://www.youtube.com/watch?v=6gG2ZZU6H5U', type: 'auto', start: null, end: null, note: '⚠ ID não verificado: Evitar Conflitos' },
+  { url: 'https://www.youtube.com/watch?v=2q1Y0Vg6z4c', type: 'auto', start: null, end: null, note: '⚠ ID não verificado: Decisão Dados' },
+  { url: 'https://www.youtube.com/watch?v=Q2D1l6yF3mA', type: 'auto', start: null, end: null, note: '⚠ ID não verificado: Gerenciar Conflitos' },
+];
+
+export default function App() {
+  const [videos, setVideos] = useState<VideoItem[]>(INITIAL_PLAYLIST);
+  const [playbackOrder, setPlaybackOrder] = useState<number[]>([]);
+  const [currentOrderPos, setCurrentOrderPos] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isShuffled, setIsShuffled] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('✅ Pronto! ' + INITIAL_PLAYLIST.length + ' vídeos carregados — clique ▶ Iniciar.');
+  const [statusError, setStatusError] = useState(false);
+  const [isIframeMode, setIsIframeMode] = useState(false);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
+  const frameTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    updatePlaybackOrder(videos, isShuffled);
+  }, [videos]);
+
+  const updatePlaybackOrder = (currentVideos: VideoItem[], shuffled: boolean) => {
+    let order = currentVideos.map((_, i) => i);
+    if (shuffled) {
+      for (let i = order.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [order[i], order[j]] = [order[j], order[i]];
+      }
+    }
+    setPlaybackOrder(order);
+    setCurrentOrderPos(0);
+  };
+
+  const handleShuffleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = e.target.checked;
+    setIsShuffled(checked);
+    updatePlaybackOrder(videos, checked);
+    setStatusMessage(checked ? '🔀 Shuffle ativado' : '📋 Ordem normal');
+  };
+
+  const setInfo = (msg: string, error = false) => {
+    setStatusMessage(msg);
+    setStatusError(error);
+  };
+
+  const clearPlayback = () => {
+    if (frameTimeoutRef.current) {
+      clearTimeout(frameTimeoutRef.current);
+      frameTimeoutRef.current = null;
+    }
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.removeAttribute('src');
+      videoRef.current.load();
+    }
+    setIsIframeMode(false);
+  };
+
+  const playCurrent = async (pos: number) => {
+    if (videos.length === 0) {
+      setInfo('❌ Playlist vazia! Adicione vídeos.', true);
+      return;
+    }
+
+    if (pos >= playbackOrder.length) {
+      setCurrentOrderPos(0);
+      return;
+    }
+    
+    setCurrentOrderPos(pos);
+    const videoIdx = playbackOrder[pos];
+    const video = videos[videoIdx];
+    const resolvedType = video.type === 'auto' ? detectType(video.url) : video.type;
+
+    clearPlayback();
+    setInfo(`🎬 (${pos + 1}/${playbackOrder.length}): ${video.note || video.url.substring(0, 55)}...`);
+
+    try {
+      if (resolvedType === 'youtube') {
+        const ytId = getYouTubeId(video.url);
+        if (!ytId) throw new Error('ID YouTube inválido');
+
+        const params = new URLSearchParams({
+          autoplay: '1',
+          rel: '0',
+          playsinline: '1',
+        });
+        if (video.start) params.set('start', video.start.toString());
+        if (video.end) params.set('end', video.end.toString());
+
+        setIsIframeMode(true);
+        setIsPlaying(true);
+        setInfo(`▶️ YouTube: ${video.note || ytId}`);
+
+        let duration = 300;
+        if (video.end && video.start) duration = video.end - video.start;
+        else if (video.end) duration = video.end;
+        frameTimeoutRef.current = setTimeout(() => nextVideo(), Math.min(duration * 1000 + 5000, 300000));
+
+      } else if (resolvedType === 'instagram') {
+        const igPath = getInstagramPath(video.url);
+        if (!igPath) throw new Error('URL Instagram inválida');
+
+        setIsIframeMode(true);
+        setIsPlaying(true);
+        setInfo(`📸 Instagram: ${video.note || igPath}`);
+
+        let duration = 60;
+        if (video.end && video.start) duration = video.end - video.start;
+        else if (video.end) duration = video.end;
+        frameTimeoutRef.current = setTimeout(() => nextVideo(), Math.min(duration * 1000 + 5000, 180000));
+
+      } else if (resolvedType === 'hls') {
+        if (!Hls.isSupported()) {
+          if (videoRef.current?.canPlayType('application/vnd.apple.mpegURL')) {
+            if (videoRef.current) videoRef.current.src = video.url;
+          } else {
+            throw new Error('HLS não suportado neste navegador');
+          }
+        } else {
+          const hls = new Hls();
+          hlsRef.current = hls;
+          hls.loadSource(video.url);
+          hls.attachMedia(videoRef.current!);
+          await new Promise<void>((resolve, reject) => {
+            hls.on(Hls.Events.MANIFEST_PARSED, () => resolve());
+hls.on(Hls.Events.ERROR, (_, data) => {
+  if (data.fatal) reject(new Error(`HLS error: ${data.details}`));
+});
+            setTimeout(() => reject(new Error('Timeout loading HLS')), 30000);
+          });
+        }
+        
+        if (videoRef.current) {
+          if (video.start) videoRef.current.currentTime = video.start;
+          await videoRef.current.play();
+        }
+        setIsPlaying(true);
+        setInfo(`🎥 HLS: ${video.note || video.url.substring(0, 45)}`);
+
+      } else {
+        // MP4
+        if (videoRef.current) {
+          videoRef.current.src = video.url;
+          await new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Timeout MP4')), 15000);
+            videoRef.current!.addEventListener('loadedmetadata', () => {
+              clearTimeout(timeout);
+              resolve();
+            }, { once: true });
+            videoRef.current!.addEventListener('error', () => {
+              clearTimeout(timeout);
+              reject(new Error('Erro MP4'));
+            }, { once: true });
+          });
+          if (video.start) videoRef.current.currentTime = video.start;
+          await videoRef.current.play();
+        }
+        setIsPlaying(true);
+        setInfo(`🎬 MP4: ${video.note || video.url.substring(0, 45)}`);
+      }
+    } catch (error: any) {
+      setInfo(`❌ Erro [${resolvedType}]: ${error.message.substring(0, 80)}`, true);
+      setTimeout(() => nextVideo(), 2000);
+    }
+  };
+
+  const nextVideo = () => {
+    setCurrentOrderPos(prev => (prev + 1) % playbackOrder.length);
+  };
+
+  const prevVideo = () => {
+    setCurrentOrderPos(prev => (prev - 1 + playbackOrder.length) % playbackOrder.length);
+  };
+
+  useEffect(() => {
+    if (playbackOrder.length > 0) {
+      playCurrent(currentOrderPos);
+    }
+  }, [currentOrderPos]);
+
+  const handlePlayPause = () => {
+    if (videos.length === 0) {
+      setInfo('❌ Playlist vazia!', true);
+      return;
+    }
+    if (isIframeMode) {
+      setInfo('⚠️ Use os controles do iframe para pausar YouTube/Instagram');
+      return;
+    }
+    if (videoRef.current) {
+      if (videoRef.current.paused) {
+        videoRef.current.play();
+        setIsPlaying(true);
+        setInfo('▶️ Reproduzindo');
+      } else {
+        videoRef.current.pause();
+        setIsPlaying(false);
+        setInfo('⏸️ Pausado');
+      }
+    }
+  };
+
+  const handleTimeUpdate = () => {
+    if (!videoRef.current) return;
+    const videoIdx = playbackOrder[currentOrderPos];
+    const video = videos[videoIdx];
+    if (video.end && videoRef.current.currentTime >= video.end) {
+      setInfo(`⏹️ Corte fim (${video.end}s) — próximo vídeo...`);
+      nextVideo();
+    }
+  };
+
+  const updateVideo = (index: number, field: keyof VideoItem, value: any) => {
+    const newVideos = [...videos];
+    newVideos[index] = { ...newVideos[index], [field]: value };
+    setVideos(newVideos);
+  };
+
+  const addRow = () => {
+    setVideos([...videos, { url: '', type: 'auto', start: null, end: null, note: '' }]);
+  };
+
+  const removeRow = (index: number) => {
+    setVideos(videos.filter((_, i) => i !== index));
+  };
+
+  const saveAndRestart = () => {
+    updatePlaybackOrder(videos, isShuffled);
+    setCurrentOrderPos(0);
+    setInfo(`💾 Playlist salva: ${videos.length} vídeos. Reiniciando...`);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#0a0a0a] text-[#e5e5e5] p-5 md:p-10 font-sans max-w-[1300px] mx-auto">
+      <h2 className="text-2xl font-bold mb-4 text-white flex items-center gap-3">
+        🎬 Player com Playlist 
+        <span className="text-xs bg-[#2e2e2e] px-3 py-1 rounded-full font-normal">YouTube · Instagram · MP4 · HLS</span>
+      </h2>
+
+      <div className="bg-black rounded-2xl overflow-hidden mb-5 shadow-2xl relative aspect-video bg-black">
+        {!isIframeMode ? (
+          <video 
+            ref={videoRef}
+            controls 
+            playsInline 
+            onTimeUpdate={handleTimeUpdate}
+            onEnded={() => {
+              setInfo('🏁 Vídeo terminado');
+              nextVideo();
+            }}
+            className="w-full h-full object-contain"
+          />
+        ) : (
+          <iframe 
+            src={
+              playbackOrder[currentOrderPos] !== undefined 
+              ? (function() {
+                  const v = videos[playbackOrder[currentOrderPos]];
+                  const type = v.type === 'auto' ? detectType(v.url) : v.type;
+                  if (type === 'youtube') {
+                    const id = getYouTubeId(v.url);
+                    const params = new URLSearchParams({ autoplay: '1', rel: '0', playsinline: '1' });
+                    if (v.start) params.set('start', v.start.toString());
+                    if (v.end) params.set('end', v.end.toString());
+                    return `https://www.youtube.com/embed/${id}?${params}`;
+                  } else if (type === 'instagram') {
+                    const path = getInstagramPath(v.url);
+                    return `https://www.instagram.com/${path}/embed`;
+                  }
+                  return 'about:blank';
+                })() 
+              : 'about:blank'
+            }
+            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+            className="w-full h-full border-0"
+            allowFullScreen
+          />
+        )}
+      </div>
+
+      <div className={`mb-4 p-3 rounded-lg text-sm font-mono border-l-4 ${statusError ? 'bg-[#2a1a1a] border-[#ef4444] text-[#f87171]' : 'bg-[#1a1a1a] border-[#3b82f6] text-[#aaa]'}`}>
+        <span className={`inline-block w-2.5 h-2.5 rounded-full mr-2 ${isPlaying ? 'bg-green-500 shadow-[0_0_5px_#22c55e]' : 'bg-gray-500'}`}></span>
+        {statusMessage}
+      </div>
+
+      <div className="flex flex-wrap gap-3 mb-6 items-center">
+        <button 
+          onClick={handlePlayPause} 
+          className="bg-[#3b82f6] hover:bg-[#2563eb] text-white px-5 py-2 rounded-lg font-semibold transition-all transform hover:scale-105"
+        >
+          {isPlaying ? '⏸ Pausar' : '▶ Iniciar'}
+        </button>
+        <button 
+          onClick={prevVideo} 
+          className="bg-[#374151] hover:bg-[#4b5563] text-[#e5e5e5] px-5 py-2 rounded-lg font-semibold transition-all"
+        >
+          ⏮ Anterior
+        </button>
+        <button 
+          onClick={nextVideo} 
+          className="bg-[#374151] hover:bg-[#4b5563] text-[#e5e5e5] px-5 py-2 rounded-lg font-semibold transition-all"
+        >
+          ⏭ Próximo
+        </button>
+        <label className="flex items-center gap-2 bg-[#1a1a1a] px-3 py-2 rounded-lg cursor-pointer text-sm">
+          <input 
+            type="checkbox" 
+            checked={isShuffled} 
+            onChange={handleShuffleChange} 
+            className="w-4 h-4 cursor-pointer" 
+          /> 
+          🔀 Shuffle
+        </label>
+      </div>
+
+      <div className="bg-[#2d2a1a] border-l-4 border-[#eab308] p-3 text-xs mb-6 rounded-lg text-[#ccc]">
+        <strong>📌 Notas:</strong> YouTube/Instagram tocam via iframe. Recorte Início/Fim funciona em HLS/MP4/YouTube. 
+        Linhas com ⚠️ têm IDs não verificados.
+      </div>
+
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-3">
+        <h3 className="text-lg font-bold">📋 Playlist (editável)</h3>
+        <div className="flex gap-2">
+          <button 
+            onClick={addRow} 
+            className="bg-[#374151] hover:bg-[#4b5563] text-[#e5e5e5] px-4 py-2 rounded-lg text-sm font-semibold transition-all"
+          >
+            ➕ Nova Linha
+          </button>
+          <button 
+            onClick={saveAndRestart} 
+            className="bg-[#3b82f6] hover:bg-[#2563eb] text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all"
+          >
+            💾 Salvar & Reiniciar
+          </button>
+        </div>
+      </div>
+      <p className="text-xs text-[#888] mb-3">💡 Início/Fim em <strong>segundos</strong>. Vazio = vídeo inteiro. Tipo "auto" detecta automaticamente pela URL.</p>
+
+      <div className="max-h-[450px] overflow-y-auto rounded-xl border border-[#2a2a2a]">
+        <table className="w-full border-collapse text-xs bg-[#111]">
+          <thead>
+            <tr className="bg-[#1e1e1e] text-[#ddd] font-semibold sticky top-0 z-10">
+              <th className="border border-[#2a2a2a] p-2 w-10">#</th>
+              <th className="border border-[#2a2a2a] p-2">URL</th>
+              <th className="border border-[#2a2a2a] p-2 w-24">Tipo</th>
+              <th className="border border-[#2a2a2a] p-2 w-20">Início</th>
+              <th className="border border-[#2a2a2a] p-2 w-20">Fim</th>
+              <th className="border border-[#2a2a2a] p-2">Nota</th>
+              <th className="border border-[#2a2a2a] p-2 w-12"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {videos.map((video, i) => (
+              <tr 
+                key={i} 
+                className={`${playbackOrder[currentOrderPos] === i ? 'bg-[#1e3a5f]' : ''} transition-colors`}
+              >
+                <td className="border border-[#2a2a2a] p-1 text-center">{i + 1}</td>
+                <td className="border border-[#2a2a2a] p-1">
+                  <input 
+                    type="text" 
+                    className="w-full bg-[#1a1a1a] text-[#e5e5e5] p-1 rounded border border-[#3a3a3a] focus:border-[#3b82f6] outline-none font-mono text-[11px]" 
+                    value={video.url} 
+                    onChange={(e) => updateVideo(i, 'url', e.target.value)}
+                  />
+                </td>
+                <td className="border border-[#2a2a2a] p-1">
+                  <select 
+                    className="w-full bg-[#1a1a1a] text-[#e5e5e5] p-1 rounded border border-[#3a3a3a] focus:border-[#3b82f6] outline-none"
+                    value={video.type} 
+                    onChange={(e) => updateVideo(i, 'type', e.target.value as VideoType)}
+                  >
+                    <option value="auto">auto</option>
+                    <option value="youtube">youtube</option>
+                    <option value="instagram">instagram</option>
+                    <option value="hls">hls</option>
+                    <option value="mp4">mp4</option>
+                  </select>
+                </td>
+                <td className="border border-[#2a2a2a] p-1">
+                  <input 
+                    type="number" 
+                    className="w-full bg-[#1a1a1a] text-[#e5e5e5] p-1 rounded border border-[#3a3a3a] focus:border-[#3b82f6] outline-none" 
+                    value={video.start ?? ''} 
+                    onChange={(e) => updateVideo(i, 'start', e.target.value === '' ? null : Number(e.target.value))}
+                  />
+                </td>
+                <td className="border border-[#2a2a2a] p-1">
+                  <input 
+                    type="number" 
+                    className="w-full bg-[#1a1a1a] text-[#e5e5e5] p-1 rounded border border-[#3a3a3a] focus:border-[#3b82f6] outline-none" 
+                    value={video.end ?? ''} 
+                    onChange={(e) => updateVideo(i, 'end', e.target.value === '' ? null : Number(e.target.value))}
+                  />
+                </td>
+                <td className="border border-[#2a2a2a] p-1">
+                  <input 
+                    type="text" 
+                    className="w-full bg-[#1a1a1a] text-[#e5e5e5] p-1 rounded border border-[#3a3a3a] focus:border-[#3b82f6] outline-none" 
+                    value={video.note} 
+                    onChange={(e) => updateVideo(i, 'note', e.target.value)}
+                  />
+                </td>
+                <td className="border border-[#2a2a2a] p-1 text-center">
+                  <button 
+                    onClick={() => removeRow(i)} 
+                    className="bg-[#dc2626] hover:bg-[#b91c1c] text-white w-6 h-6 rounded flex items-center justify-center mx-auto transition-colors"
+                  >
+                    ✕
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
