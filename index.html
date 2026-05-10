@@ -2,52 +2,41 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<title>DANIBOSS TV - Streaming</title>
+<title>DANIBOSS TV - Streaming Network</title>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <style>
   * { box-sizing: border-box; }
   body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    margin: 0;
-    padding: 20px;
-    background: #050505;
-    color: #e5e5e5;
-    overflow-x: hidden;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    margin: 0; padding: 20px;
+    background: #050505; color: #e5e5e5;
   }
 
   /* CONTAINER DO PLAYER */
   .player-container {
     position: relative;
-    width: 100%;
-    max-width: 1100px;
+    width: 100%; max-width: 1200px;
     margin: 0 auto 20px auto;
-    background: #000;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 15px 35px rgba(0,0,0,0.8);
+    background: #000; border-radius: 12px;
+    overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.8);
     aspect-ratio: 16 / 9;
   }
 
-  /* ESTADO FULLSCREEN PERSONALIZADO */
+  /* MODO TELA CHEIA CUSTOMIZADO (Mantém a Logo visível) */
   .player-container.fullscreen {
-    position: fixed;
-    top: 0; left: 0; width: 100vw; height: 100vh;
+    position: fixed; top: 0; left: 0; 
+    width: 100vw; height: 100vh;
     max-width: none; border-radius: 0; z-index: 9999;
   }
 
   #stage { width: 100%; height: 100%; position: relative; }
 
-  /* MARCA D'ÁGUA (MOSCA) - SEMPRE NO TOPO */
+  /* MARCA D'ÁGUA (MOSCA) */
   .watermark {
-    position: absolute;
-    top: 5%; right: 4%;
-    z-index: 1000;
-    opacity: 0.7;
-    pointer-events: none;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    transition: opacity 0.3s;
+    position: absolute; top: 5%; right: 4%;
+    z-index: 10000; /* Sempre no topo */
+    opacity: 0.7; pointer-events: none;
+    display: flex; align-items: center; gap: 10px;
   }
   .watermark img { height: 45px; filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.9)); }
   .live-dot {
@@ -61,12 +50,12 @@
   #frame { display: none; }
 
   /* INTERFACE */
-  .ui-content { max-width: 1100px; margin: 0 auto; }
+  .ui-content { max-width: 1200px; margin: 0 auto; }
   #info {
     background: #111; padding: 12px 20px; border-radius: 8px;
     font-family: monospace; border-left: 4px solid #3b82f6; margin-bottom: 15px;
   }
-  .controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
   button {
     padding: 10px 20px; border: none; border-radius: 6px;
     cursor: pointer; font-weight: bold; background: #2563eb; color: #fff;
@@ -74,37 +63,36 @@
   button:hover { background: #1d4ed8; }
   button.sec { background: #333; }
   
-  .table-wrapper { background: #111; border-radius: 8px; overflow: hidden; border: 1px solid #222; }
+  .table-wrapper { background: #111; border-radius: 8px; overflow-y: auto; max-height: 400px; border: 1px solid #222; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  th { background: #1a1a1a; padding: 10px; text-align: left; }
+  th { background: #1a1a1a; padding: 10px; text-align: left; position: sticky; top: 0; }
   td { padding: 8px; border-top: 1px solid #222; }
   input { background: #1a1a1a; border: 1px solid #333; color: #fff; padding: 4px; border-radius: 4px; width: 100%; }
   
-  tr.active { background: #1e3a5f !important; border-left: 4px solid #3b82f6; }
+  tr.active { background: #1e3a5f !important; }
 
-  /* BOTÃO EXPANDIR */
   .expand-btn {
     position: absolute; bottom: 20px; right: 20px;
-    z-index: 1001; background: rgba(0,0,0,0.5);
-    padding: 5px 10px; border-radius: 4px; font-size: 11px;
-    cursor: pointer; border: 1px solid #444; color: #fff;
+    z-index: 10001; background: rgba(0,0,0,0.6);
+    padding: 8px 12px; border-radius: 5px; font-size: 12px;
+    cursor: pointer; border: 1px solid #555; color: #fff;
   }
 </style>
 </head>
 <body>
 
 <div class="ui-content">
-  <h2 style="margin-top:0">📺 DANIBOSS TV <span style="font-size:12px; font-weight:normal; opacity:0.5">Streaming Privado</span></h2>
+  <h2 style="margin-top:0">🎬 DANIBOSS TV <span style="font-size:12px; font-weight:normal; opacity:0.5">Streaming Ativo</span></h2>
 </div>
 
 <div class="player-container" id="mainContainer">
   <div id="stage">
     <div class="watermark">
       <div class="live-dot"></div>
-      <img src="daniboss-tv-logo.png" alt="LOGO">
+      <img src="daniboss-tv-logo.png" alt="DANIBOSS TV">
     </div>
 
-    <div class="expand-btn" onclick="toggleFull()">TELA CHEIA (ESC para sair)</div>
+    <div class="expand-btn" onclick="toggleFull()">EXPANDIR TELA (ESC para sair)</div>
 
     <video id="player" playsinline></video>
     <iframe id="frame" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>
@@ -112,13 +100,13 @@
 </div>
 
 <div class="ui-content">
-  <div id="info">Sintonizando...</div>
+  <div id="info">Pronto para iniciar...</div>
 
   <div class="controls">
-    <button id="playBtn">▶ INICIAR CANAL</button>
+    <button id="playBtn">▶ INICIAR TRANSMISSÃO</button>
     <button class="sec" onclick="prevVideo()">⏮ Anterior</button>
     <button class="sec" onclick="nextVideo()">⏭ Próximo</button>
-    <label style="font-size:13px; display:flex; align-items:center; gap:5px">
+    <label style="font-size:13px; cursor:pointer">
       <input type="checkbox" id="shuffleBtn" checked> Modo Shuffle (Sem Repetição)
     </label>
   </div>
@@ -126,12 +114,11 @@
   <div class="table-wrapper">
     <table id="playlistTable">
       <thead>
-        <tr><th>#</th><th>URL do Vídeo</th><th style="width:80px">Início</th><th style="width:80px">Fim</th><th>Nota</th></tr>
+        <tr><th>#</th><th>URL</th><th style="width:70px">Início</th><th style="width:70px">Fim</th><th>Nota</th></tr>
       </thead>
       <tbody id="playlistBody"></tbody>
     </table>
   </div>
-  <p style="font-size:11px; color:#666; margin-top:10px">Nota: YouTube/Instagram rodam via Iframe. Links .m3u8 rodam via HLS nativo.</p>
 </div>
 
 <script>
@@ -142,32 +129,41 @@ const container = document.getElementById('mainContainer');
 
 let videos = [], order = [], currentPos = 0, hls = null, isPlaying = false;
 
-const INITIAL_DATA = [
-  ['https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', '5', '30', 'Abertura HLS'],
-  ['https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', '', '', 'Curta Metragem'],
-  ['https://www.youtube.com/watch?v=KSNUugQuweY', '', '', 'Clipe YouTube'],
-  ['https://www.youtube.com/shorts/eiB1zk97wNk', '', '60', 'Shorts Vertical']
+// LISTA COMPLETA PRESERVADA
+const DATA = [
+  ['https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', '5', '20', 'demo HLS'],
+  ['https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', '', '', 'demo MP4'],
+  ['https://www.youtube.com/watch?v=KSNUugQuweY', '', '', 'YouTube'],
+  ['https://www.youtube.com/watch?v=w-15vFFBnCc', '', '', 'YouTube'],
+  ['https://www.youtube.com/shorts/eiB1zk97wNk', '', '60', 'Short com corte'],
+  ['https://www.instagram.com/reels/DYAP9Vlo0o_/', '', '60', 'IG Reel'],
+  ['https://www.youtube.com/shorts/xUmYoQpLIuc', '', '60', 'Short'],
+  ['https://www.youtube.com/shorts/kYfivrUHGP4', '', '60', 'Short'],
+  ['https://www.youtube.com/watch?v=ed2cwHEQIDM', '', '', 'TSMC Q1 2026'],
+  ['https://www.youtube.com/watch?v=jfMKdInpsOQ', '', '', 'TSM Q1 Earnings'],
+  ['https://www.youtube.com/watch?v=zj78dhYtxAM', '', '', 'TSMC 2nm Apr2026'],
+  ['https://www.youtube.com/watch?v=6X4c4Q8gY4o', '', '', '33 Estratégias'],
+  ['https://www.youtube.com/watch?v=8D_5xY4QJ0A', '', '', '5 Dicas Negociar'],
+  ['https://www.youtube.com/watch?v=8f6S8LZg8U4', '', '', 'Psicologia Negociação'],
+  ['https://www.youtube.com/watch?v=2R6yP8x2dJg', '', '', '7 Técnicas Persuasão'],
+  ['https://www.youtube.com/watch?v=6gG2ZZU6H5U', '', '', 'Evitar Conflitos'],
+  ['https://www.youtube.com/watch?v=2q1Y0Vg6z4c', '', '', 'Decisão Dados'],
+  ['https://www.youtube.com/watch?v=Q2D1l6yF3mA', '', '', 'Gerenciar Conflitos']
 ];
 
-function toggleFull() {
-  container.classList.toggle('fullscreen');
-}
+function toggleFull() { container.classList.toggle('fullscreen'); }
+document.addEventListener('keydown', (e) => { if (e.key === "Escape") container.classList.remove('fullscreen'); });
 
-document.addEventListener('keydown', (e) => {
-  if (e.key === "Escape") container.classList.remove('fullscreen');
-});
-
-function buildPlaylist() {
-  const rows = document.getElementById('playlistBody');
-  rows.innerHTML = '';
-  videos = INITIAL_DATA.map((v, i) => {
-    rows.innerHTML += `<tr id="row-${i}"><td>${i+1}</td><td><input value="${v[0]}"></td><td><input value="${v[1]}"></td><td><input value="${v[2]}"></td><td><input value="${v[3]}"></td></tr>`;
+function init() {
+  const tbody = document.getElementById('playlistBody');
+  videos = DATA.map((v, i) => {
+    tbody.innerHTML += `<tr id="row-${i}"><td>${i+1}</td><td><input value="${v[0]}"></td><td><input value="${v[1]}"></td><td><input value="${v[2]}"></td><td><input value="${v[3]}"></td></tr>`;
     return { url: v[0], start: Number(v[1]), end: Number(v[2]), note: v[3] };
   });
-  shuffle();
+  createShuffleOrder();
 }
 
-function shuffle() {
+function createShuffleOrder() {
   order = videos.map((_, i) => i);
   if (document.getElementById('shuffleBtn').checked) {
     for (let i = order.length - 1; i > 0; i--) {
@@ -175,6 +171,7 @@ function shuffle() {
       [order[i], order[j]] = [order[j], order[i]];
     }
   }
+  currentPos = 0;
 }
 
 async function playCurrent() {
@@ -184,18 +181,23 @@ async function playCurrent() {
   const idx = order[currentPos];
   const video = videos[idx];
   const isYT = video.url.includes('youtube.com') || video.url.includes('youtu.be');
+  const isIG = video.url.includes('instagram.com');
 
   document.querySelectorAll('tr').forEach(r => r.classList.remove('active'));
   document.getElementById(`row-${idx}`).classList.add('active');
 
-  if (isYT) {
-    const id = video.url.match(/(?:v=|shorts\/|be\/)([A-Za-z0-9_-]{11})/)[1];
-    frame.src = `https://www.youtube.com/embed/${id}?autoplay=1&controls=0&rel=0&start=${video.start || 0}`;
+  if (isYT || isIG) {
+    if (isYT) {
+      const id = video.url.match(/(?:v=|shorts\/|be\/)([A-Za-z0-9_-]{11})/)[1];
+      frame.src = `https://www.youtube.com/embed/${id}?autoplay=1&controls=1&rel=0&start=${video.start || 0}`;
+    } else {
+      const path = video.url.match(/instagram\.com\/(reels?|p)\/([^\/?#]+)/i);
+      frame.src = `https://www.instagram.com/${path[1]}/${path[2]}/embed`;
+    }
     frame.style.display = 'block'; player.style.display = 'none';
-    info.innerText = `[TV] EM EXIBIÇÃO: ${video.note || 'YouTube'}`;
-    // Simula fim do vídeo após 5 min ou tempo definido
-    let time = video.end ? (video.end - video.start) : 300;
-    window.ytTimer = setTimeout(nextVideo, time * 1000);
+    info.innerText = `ON AIR: ${video.note}`;
+    let dur = video.end ? (video.end - (video.start||0)) : 300;
+    window.ytTimer = setTimeout(nextVideo, dur * 1000);
   } else {
     frame.style.display = 'none'; player.style.display = 'block';
     if (video.url.includes('.m3u8')) {
@@ -207,14 +209,14 @@ async function playCurrent() {
       player.src = video.url;
       player.onloadedmetadata = () => { if(video.start) player.currentTime = video.start; player.play(); };
     }
-    info.innerText = `[TV] EM EXIBIÇÃO: ${video.note || 'MP4/HLS'}`;
+    info.innerText = `ON AIR: ${video.note}`;
   }
   isPlaying = true;
 }
 
 function nextVideo() {
-  currentPos = (currentPos + 1) % order.length;
-  if (currentPos === 0) shuffle(); // Re-embaralha ao fim do ciclo
+  currentPos++;
+  if (currentPos >= order.length) createShuffleOrder(); 
   playCurrent();
 }
 
@@ -223,11 +225,9 @@ function prevVideo() {
   playCurrent();
 }
 
-// GARANTIA DE CONTINUIDADE 24/7
 player.addEventListener('ended', nextVideo);
 player.addEventListener('error', () => setTimeout(nextVideo, 2000));
 
-// Tenta manter o play se o navegador pausar sozinho
 setInterval(() => {
   if (isPlaying && player.paused && frame.style.display === 'none') {
     player.play().catch(() => { player.muted = true; player.play(); });
@@ -235,11 +235,11 @@ setInterval(() => {
 }, 5000);
 
 document.getElementById('playBtn').onclick = () => {
-  if (!isPlaying) { playCurrent(); document.getElementById('playBtn').innerText = "⏸ CANAL NO AR"; }
+  playCurrent();
+  document.getElementById('playBtn').innerText = "⏸ EM TRANSMISSÃO";
 };
 
-window.onload = buildPlaylist;
+window.onload = init;
 </script>
-
 </body>
 </html>
