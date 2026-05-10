@@ -2,8 +2,14 @@
 <html lang="pt-BR">
 <head>
     <meta charset="utf-8">
-    <title>DANIBOSS TV - ADMIN MODE</title>
+    <title>DANIBOSS TV - Firebase Cloud</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    
     <style>
         * { box-sizing: border-box; }
         body {
@@ -19,11 +25,14 @@
         #player, #frame { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
 
         .ui-footer { padding: 20px; background: #0a0a0a; border-top: 1px solid #222; }
-        .btn-sound {
+        .btn-sound, .btn-login {
             padding: 12px 24px; background: #2563eb; color: white; border: none;
-            border-radius: 6px; font-weight: bold; cursor: pointer;
+            border-radius: 6px; font-weight: bold; cursor: pointer; margin-right: 10px;
         }
-        .btn-sound:hover { background: #1d4ed8; }
+        .btn-login { background: #4285f4; }
+        .btn-logout { background: #dc2626; }
+        .user-info { display: inline-flex; align-items: center; gap: 10px; margin-left: 20px; }
+        .user-avatar { width: 32px; height: 32px; border-radius: 50%; }
 
         /* PAINEL ADMIN */
         #adminPanel {
@@ -62,9 +71,38 @@
         .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; animation: pulse 1.5s infinite; }
         .status-live { background: #ef4444; box-shadow: 0 0 5px #ef4444; }
         @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+        
+        .login-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #0a0a0a;
+            padding: 10px 20px;
+            border-bottom: 1px solid #222;
+        }
+        .login-status {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
     </style>
 </head>
 <body>
+
+<!-- Barra de Login -->
+<div class="login-bar">
+    <div>
+        <strong>🎬 DANIBOSS TV</strong> <span style="color:#666; font-size:12px;">| Cloud Sync</span>
+    </div>
+    <div class="login-status" id="loginStatus">
+        <button class="btn-login" id="loginBtn" onclick="loginWithGoogle()">🔐 Login com Google</button>
+        <div id="userInfo" style="display:none;">
+            <img id="userAvatar" class="user-avatar" src="">
+            <span id="userName"></span>
+            <button class="btn-logout" id="logoutBtn" onclick="logout()">Sair</button>
+        </div>
+    </div>
+</div>
 
 <div class="main-layout">
     <div class="player-section">
@@ -74,7 +112,7 @@
         </div>
         
         <div class="ui-footer">
-            <div id="info"><span class="status-dot status-live"></span> Sincronizando...</div>
+            <div id="info"><span class="status-dot status-live"></span> Sincronizando com Cloud...</div>
             <button class="btn-sound" id="soundBtn" onclick="enableAudio()">🔊 ATIVAR SOM</button>
             
             <table class="prog-table">
@@ -86,7 +124,7 @@
 
 <div id="adminPanel">
     <h2>🎬 GESTOR DANIBOSS TV</h2>
-    <p style="font-size: 12px; color: #888;">Adicione, edite ou remova vídeos da playlist</p>
+    <p style="font-size: 12px; color: #888;" id="adminAuthMsg">⚠️ Faça login para editar a playlist</p>
     
     <div class="admin-row">
         <input type="text" id="newTitle" class="admin-input" placeholder="Título do Vídeo">
@@ -94,20 +132,36 @@
     </div>
     <div class="admin-row">
         <input type="number" id="newStart" class="admin-input" placeholder="Início (segundos)" value="0">
-        <input type="number" id="newEnd" class="admin-input" placeholder="Fim (segundos)" value="0">
+        <input type="number" id="newEnd" class="admin-input" placeholder="Fim (segundos) (0=completo)" value="0">
     </div>
-    <button onclick="addVideo()" style="width:100%; padding: 12px; background: #22c55e; border: none; color: white; font-weight: bold; cursor:pointer; border-radius: 6px; margin-bottom: 15px;">+ ADICIONAR À PLAYLIST</button>
+    <button id="addBtn" onclick="addVideo()" style="width:100%; padding: 12px; background: #22c55e; border: none; color: white; font-weight: bold; cursor:pointer; border-radius: 6px; margin-bottom: 15px;">+ ADICIONAR À PLAYLIST</button>
     
     <div class="video-list" id="adminVideoList"></div>
     
-    <button class="btn-save-all" onclick="saveAllChanges()">💾 SALVAR TODAS ALTERAÇÕES</button>
     <button class="btn-close" onclick="toggleAdmin()">FECHAR GESTOR (ESC)</button>
 </div>
 
 <div class="admin-trigger" onclick="toggleAdmin()">🔧 ADMIN MODE (Pressione A)</div>
 
 <script>
-// ==================== PLAYLIST COMPLETA (TODOS VÍDEOS VERIFICADOS E INTEIROS) ====================
+// ==================== CONFIGURAÇÃO FIREBASE ====================
+const firebaseConfig = {
+    apiKey: "AIzaSyANZgI5dhvLAvnKd3DgXMnDqI9CF2rBZEA",
+    authDomain: "daniboss-tv.firebaseapp.com",
+    databaseURL: "https://daniboss-tv-default-rtdb.firebaseio.com",
+    projectId: "daniboss-tv",
+    storageBucket: "daniboss-tv.firebasestorage.app",
+    messagingSenderId: "541103479451",
+    appId: "1:541103479451:web:b20c574257045f8186843e",
+    measurementId: "G-SNK8LKYZ4B"
+};
+
+// Inicializar Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+// ==================== PLAYLIST PADRÃO ====================
 const DEFAULT_PLAYLIST = [
     { title: "📡 Demo HLS", url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", start: 0, end: 0 },
     { title: "🐰 Big Buck Bunny (MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", start: 0, end: 0 },
@@ -115,16 +169,16 @@ const DEFAULT_PLAYLIST = [
     { title: "🎬 BBC Earth - Planet Earth", url: "https://www.youtube.com/watch?v=c8aFcHFu8QM", start: 0, end: 0 },
     { title: "📱 Nat Geo - Amazing Animals", url: "https://www.youtube.com/shorts/9Vp4vF0vG4A", start: 0, end: 0 },
     { title: "📸 Instagram Reel - Nature", url: "https://www.instagram.com/reel/C7YxL-zIqK4/", start: 0, end: 0 },
-    { title: "📱 YouTube Shorts - Tech Review", url: "https://www.youtube.com/shorts/3Dlq Function" target="_blank">https://www.youtube.com/shorts/3DlqFJw6QzA", start: 0, end: 0 },
+    { title: "📱 YouTube Shorts - Tech", url: "https://www.youtube.com/shorts/3DlqFJw6QzA", start: 0, end: 0 },
     { title: "📱 YouTube Shorts - Gaming", url: "https://www.youtube.com/shorts/9DlqFJw6QzA", start: 0, end: 0 },
     { title: "🏭 Tesla Bot Update", url: "https://www.youtube.com/watch?v=ODSJsviD_SU", start: 0, end: 0 },
     { title: "📊 NVIDIA CES 2024", url: "https://www.youtube.com/watch?v=NJ1Z7C5-qjo", start: 0, end: 0 },
     { title: "🔬 SpaceX Starship Launch", url: "https://www.youtube.com/watch?v=RxY9yFpO6R8", start: 0, end: 0 },
     { title: "🎵 Top Music Hits 2024", url: "https://www.youtube.com/watch?v=fJ9rUzIMcZQ", start: 0, end: 0 },
-    { title: "🎬 Movie Trailer - Dune 2", url: "https://www.youtube.com/watch?v=Way9Dexny3w", start: 0, end: 0 },
-    { title: "🎬 Movie Trailer - Deadpool 3", url: "https://www.youtube.com/watch?v=5wBTdfAkqGU", start: 0, end: 0 },
-    { title: "🌍 Travel - Japan 4K", url: "https://www.youtube.com/watch?v=6E7Wk6VfY-g", start: 0, end: 0 },
-    { title: "🍳 Cooking - Gordon Ramsay", url: "https://www.youtube.com/watch?v=7zZ7x7x7x7x", start: 0, end: 0 },
+    { title: "🎬 Dune 2 Trailer", url: "https://www.youtube.com/watch?v=Way9Dexny3w", start: 0, end: 0 },
+    { title: "🎬 Deadpool 3 Trailer", url: "https://www.youtube.com/watch?v=5wBTdfAkqGU", start: 0, end: 0 },
+    { title: "🌍 Japan 4K Travel", url: "https://www.youtube.com/watch?v=6E7Wk6VfY-g", start: 0, end: 0 },
+    { title: "🍳 Gordon Ramsay Cooking", url: "https://www.youtube.com/watch?v=7zZ7x7x7x7x", start: 0, end: 0 },
     { title: "💪 Workout Motivation", url: "https://www.youtube.com/watch?v=6X4c4Q8gY4o", start: 0, end: 0 },
     { title: "🧠 Motivational Speech", url: "https://www.youtube.com/watch?v=8D_5xY4QJ0A", start: 0, end: 0 }
 ];
@@ -134,26 +188,90 @@ let playlist = [];
 let ultimoIndice = -1;
 let audioAtivado = false;
 let activeHls = null;
+let currentUser = null;
 let tempoTotal = 0;
+let isFirstLoad = true;
 
-// Carregar playlist do localStorage ou usar a padrão
-function loadPlaylist() {
-    const saved = localStorage.getItem('daniboss_playlist');
-    if (saved) {
-        try {
-            playlist = JSON.parse(saved);
-            if (playlist.length === 0) playlist = [...DEFAULT_PLAYLIST];
-        } catch(e) {
-            playlist = [...DEFAULT_PLAYLIST];
-        }
-    } else {
-        playlist = [...DEFAULT_PLAYLIST];
-    }
-    calcularTempoTotal();
-    renderAdminList();
-    renderProgTable();
+// ==================== AUTHENTICATION ====================
+function loginWithGoogle() {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider).then((result) => {
+        console.log("Login bem sucedido:", result.user.displayName);
+    }).catch((error) => {
+        console.error("Erro no login:", error);
+        alert("Erro no login: " + error.message);
+    });
 }
 
+function logout() {
+    auth.signOut().then(() => {
+        console.log("Logout efetuado");
+    }).catch((error) => {
+        console.error("Erro no logout:", error);
+    });
+}
+
+// Atualizar UI de login
+auth.onAuthStateChanged((user) => {
+    if (user) {
+        currentUser = user;
+        document.getElementById('loginBtn').style.display = 'none';
+        document.getElementById('userInfo').style.display = 'flex';
+        document.getElementById('userName').textContent = user.displayName;
+        document.getElementById('userAvatar').src = user.photoURL || 'https://ui-avatars.com/api/?background=4285f4&color=fff&name=' + user.displayName?.charAt(0);
+        document.getElementById('adminAuthMsg').innerHTML = '✅ Logado como ' + user.displayName + ' - Pode editar a playlist!';
+        document.getElementById('adminAuthMsg').style.color = '#22c55e';
+    } else {
+        currentUser = null;
+        document.getElementById('loginBtn').style.display = 'block';
+        document.getElementById('userInfo').style.display = 'none';
+        document.getElementById('adminAuthMsg').innerHTML = '⚠️ Faça login com Google para editar a playlist!';
+        document.getElementById('adminAuthMsg').style.color = '#eab308';
+    }
+    renderAdminList();
+});
+
+// ==================== FIRESTORE OPERATIONS ====================
+// Carregar playlist do Firestore
+function loadPlaylistFromCloud() {
+    db.collection('config').doc('playlist').onSnapshot((doc) => {
+        if (doc.exists && doc.data().videos && doc.data().videos.length > 0) {
+            playlist = doc.data().videos;
+            console.log("Playlist carregada da Cloud:", playlist.length, "vídeos");
+        } else if (isFirstLoad) {
+            // Primeira vez - salvar playlist padrão
+            savePlaylistToCloud(DEFAULT_PLAYLIST);
+            playlist = [...DEFAULT_PLAYLIST];
+        }
+        isFirstLoad = false;
+        calcularTempoTotal();
+        renderProgTable();
+        if (ultimoIndice === -1) updateLiveStream();
+    }, (error) => {
+        console.error("Erro ao carregar playlist:", error);
+    });
+}
+
+// Salvar playlist no Firestore
+async function savePlaylistToCloud(newPlaylist) {
+    if (!newPlaylist) newPlaylist = playlist;
+    
+    try {
+        await db.collection('config').doc('playlist').set({
+            videos: newPlaylist,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: currentUser ? currentUser.email : 'anonymous'
+        });
+        console.log("Playlist salva na Cloud!");
+        return true;
+    } catch (error) {
+        console.error("Erro ao salvar playlist:", error);
+        alert("Erro ao salvar: " + error.message);
+        return false;
+    }
+}
+
+// ==================== FUNÇÕES DA PLAYLIST ====================
 function calcularTempoTotal() {
     tempoTotal = 0;
     playlist.forEach(v => {
@@ -161,61 +279,55 @@ function calcularTempoTotal() {
         if (v.end && v.end > 0) {
             duracao = v.end - (v.start || 0);
         } else {
-            // Duração padrão para vídeos inteiros (YouTube normalmente tem duração variável)
-            duracao = 300; // 5 minutos padrão
+            duracao = 300;
         }
         tempoTotal += duracao > 0 ? duracao : 300;
     });
     if (tempoTotal <= 0) tempoTotal = 1;
 }
 
-function getVideoDuration(video) {
-    // Retorna a duração para cálculo do ciclo
-    if (video.end && video.end > 0) {
-        return video.end - (video.start || 0);
-    }
-    // Para vídeos inteiros, usamos 5 minutos como padrão
-    // O sistema vai sincronizar baseado no tempo real
-    return 300;
-}
-
-function savePlaylist() {
-    localStorage.setItem('daniboss_playlist', JSON.stringify(playlist));
-    calcularTempoTotal();
-    renderAdminList();
-    renderProgTable();
-}
-
 function addVideo() {
+    if (!currentUser) {
+        alert("⚠️ Faça login com Google para adicionar vídeos!");
+        return;
+    }
+    
     const title = document.getElementById('newTitle').value.trim();
     const url = document.getElementById('newUrl').value.trim();
     const start = parseInt(document.getElementById('newStart').value) || 0;
-    let end = parseInt(document.getElementById('newEnd').value) || 0;
-    
-    // Se end for 0, significa vídeo inteiro
-    if (end === 0) end = 0;
+    const end = parseInt(document.getElementById('newEnd').value) || 0;
 
     if (title && url) {
-        playlist.push({ title, url, start, end });
-        savePlaylist();
+        const newPlaylist = [...playlist, { title, url, start, end }];
+        savePlaylistToCloud(newPlaylist);
         document.getElementById('newTitle').value = '';
         document.getElementById('newUrl').value = '';
         document.getElementById('newStart').value = '0';
         document.getElementById('newEnd').value = '0';
-        alert("✅ Vídeo adicionado com sucesso!");
+        alert("✅ Vídeo adicionado! A sincronizar...");
     } else {
         alert("❌ Preencha título e URL!");
     }
 }
 
 function removeVideo(index) {
+    if (!currentUser) {
+        alert("⚠️ Faça login com Google para remover vídeos!");
+        return;
+    }
+    
     if (confirm(`Remover "${playlist[index].title}" da playlist?`)) {
-        playlist.splice(index, 1);
-        savePlaylist();
+        const newPlaylist = playlist.filter((_, i) => i !== index);
+        savePlaylistToCloud(newPlaylist);
     }
 }
 
 function editVideo(index) {
+    if (!currentUser) {
+        alert("⚠️ Faça login com Google para editar vídeos!");
+        return;
+    }
+    
     const video = playlist[index];
     const newTitle = prompt("Editar título:", video.title);
     if (newTitle !== null && newTitle !== "") video.title = newTitle;
@@ -229,22 +341,15 @@ function editVideo(index) {
     const newEnd = parseInt(prompt("Fim (segundos) (0 = vídeo inteiro):", video.end)) || 0;
     video.end = newEnd;
     
-    savePlaylist();
-}
-
-function saveAllChanges() {
-    savePlaylist();
-    alert("💾 Playlist salva permanentemente!");
-}
-
-function toggleAdmin() {
-    const panel = document.getElementById('adminPanel');
-    panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
-    renderAdminList();
+    const newPlaylist = [...playlist];
+    newPlaylist[index] = video;
+    savePlaylistToCloud(newPlaylist);
 }
 
 function renderAdminList() {
     const list = document.getElementById('adminVideoList');
+    if (!list) return;
+    
     if (playlist.length === 0) {
         list.innerHTML = '<div style="padding: 20px; text-align: center; color: #888;">Nenhum vídeo na playlist</div>';
         return;
@@ -252,10 +357,10 @@ function renderAdminList() {
     
     list.innerHTML = playlist.map((v, i) => `
         <div class="video-item">
-            <span><strong>${v.title}</strong><br><small>${v.url.substring(0, 50)}... | ${v.start > 0 ? v.start + 's' : 'início'} → ${v.end > 0 ? v.end + 's' : 'fim'}</small></span>
+            <span><strong>${v.title}</strong><br><small>${v.url.substring(0, 50)}... | ${v.start > 0 ? v.start + 's' : 'início'} → ${v.end > 0 ? v.end + 's' : 'completo'}</small></span>
             <div>
-                <button class="btn-edit" onclick="editVideo(${i})">✏️</button>
-                <button class="btn-del" onclick="removeVideo(${i})">🗑️</button>
+                <button class="btn-edit" onclick="editVideo(${i})" ${!currentUser ? 'disabled style="opacity:0.5;"' : ''}>✏️</button>
+                <button class="btn-del" onclick="removeVideo(${i})" ${!currentUser ? 'disabled style="opacity:0.5;"' : ''}>🗑️</button>
             </div>
         </div>
     `).join('');
@@ -263,6 +368,8 @@ function renderAdminList() {
 
 function renderProgTable() {
     const progBody = document.getElementById('progBody');
+    if (!progBody) return;
+    
     if (playlist.length === 0) {
         progBody.innerHTML = '<tr><td style="padding:20px; text-align:center;">Nenhum vídeo na playlist</td></tr>';
         return;
@@ -275,12 +382,22 @@ function renderProgTable() {
     `).join('');
 }
 
+function toggleAdmin() {
+    const panel = document.getElementById('adminPanel');
+    if (panel) {
+        panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+        renderAdminList();
+    }
+}
+
 function enableAudio() {
     audioAtivado = true;
     const playerEl = document.getElementById('player');
-    playerEl.muted = false;
-    document.getElementById('soundBtn').style.display = 'none';
-    document.getElementById('info').innerHTML = '<span class="status-dot status-live"></span> 🔈 ÁUDIO ATIVADO';
+    if (playerEl) playerEl.muted = false;
+    const soundBtn = document.getElementById('soundBtn');
+    if (soundBtn) soundBtn.style.display = 'none';
+    const infoDiv = document.getElementById('info');
+    if (infoDiv) infoDiv.innerHTML = '<span class="status-dot status-live"></span> 🔈 ÁUDIO ATIVADO';
     setTimeout(() => {
         ultimoIndice = -1;
         updateLiveStream();
@@ -319,11 +436,15 @@ function limparPlayer() {
     }
     const playerEl = document.getElementById('player');
     const frameEl = document.getElementById('frame');
-    playerEl.pause();
-    playerEl.src = '';
-    frameEl.src = 'about:blank';
-    frameEl.style.display = 'none';
-    playerEl.style.display = 'block';
+    if (playerEl) {
+        playerEl.pause();
+        playerEl.src = '';
+    }
+    if (frameEl) {
+        frameEl.src = 'about:blank';
+        frameEl.style.display = 'none';
+    }
+    if (playerEl) playerEl.style.display = 'block';
 }
 
 async function carregarVideo(video, segundoAtual) {
@@ -345,21 +466,21 @@ async function carregarVideo(video, segundoAtual) {
         });
         if (!audioAtivado) params.set('mute', '1');
         
-        // Se tem start definido
         if (video.start && video.start > 0 && segundoAtual === video.start) {
             params.set('start', video.start);
         } else if (segundoAtual > 0) {
             params.set('start', Math.floor(segundoAtual));
         }
         
-        // Se tem end definido
         if (video.end && video.end > 0) {
             params.set('end', video.end);
         }
         
-        frameEl.src = `https://www.youtube.com/embed/${youtubeId}?${params}`;
-        frameEl.style.display = 'block';
-        playerEl.style.display = 'none';
+        if (frameEl) {
+            frameEl.src = `https://www.youtube.com/embed/${youtubeId}?${params}`;
+            frameEl.style.display = 'block';
+        }
+        if (playerEl) playerEl.style.display = 'none';
         return;
     }
     
@@ -367,15 +488,20 @@ async function carregarVideo(video, segundoAtual) {
         const instaPath = getInstagramPath(video.url);
         if (!instaPath) throw new Error('URL Instagram inválida');
         
-        frameEl.src = `https://www.instagram.com/${instaPath}/embed`;
-        frameEl.style.display = 'block';
-        playerEl.style.display = 'none';
+        if (frameEl) {
+            frameEl.src = `https://www.instagram.com/${instaPath}/embed`;
+            frameEl.style.display = 'block';
+        }
+        if (playerEl) playerEl.style.display = 'none';
         return;
     }
     
-    // HLS ou MP4
-    playerEl.style.display = 'block';
-    frameEl.style.display = 'none';
+    if (playerEl) {
+        playerEl.style.display = 'block';
+    }
+    if (frameEl) {
+        frameEl.style.display = 'none';
+    }
     
     if (type === 'hls' && Hls && Hls.isSupported()) {
         if (activeHls) activeHls.destroy();
@@ -389,7 +515,7 @@ async function carregarVideo(video, segundoAtual) {
             });
             setTimeout(() => reject(new Error('Timeout HLS')), 15000);
         });
-    } else {
+    } else if (playerEl) {
         playerEl.src = video.url;
         await new Promise((resolve, reject) => {
             playerEl.onloadedmetadata = resolve;
@@ -419,7 +545,7 @@ function updateLiveStream() {
         if (v.end && v.end > 0) {
             duracao = v.end - (v.start || 0);
         } else {
-            duracao = 300; // 5 minutos padrão para vídeos inteiros
+            duracao = 300;
         }
         tempoTotalCiclo += duracao > 0 ? duracao : 300;
     });
@@ -456,7 +582,10 @@ function updateLiveStream() {
     const videoAtual = playlist[indiceAtual];
     if (videoAtual) {
         const duracaoDisplay = (videoAtual.end && videoAtual.end > 0) ? `${videoAtual.end}s` : 'completo';
-        document.getElementById('info').innerHTML = `<span class="status-dot status-live"></span> 📺 EM DIRETO: ${videoAtual.title} | ${Math.floor(segundoNoVideo)}s / ${duracaoDisplay}`;
+        const infoDiv = document.getElementById('info');
+        if (infoDiv) {
+            infoDiv.innerHTML = `<span class="status-dot status-live"></span> 📺 EM DIRETO: ${videoAtual.title} | ${Math.floor(segundoNoVideo)}s / ${duracaoDisplay}`;
+        }
     }
     
     // Mudou de vídeo?
@@ -464,33 +593,36 @@ function updateLiveStream() {
         ultimoIndice = indiceAtual;
         carregarVideo(videoAtual, segundoNoVideo).catch(err => {
             console.error("Erro ao carregar vídeo:", err);
-            document.getElementById('info').innerHTML = `<span class="status-dot status-live"></span> ⚠️ Erro: ${err.message} - pulando...`;
+            const infoDiv = document.getElementById('info');
+            if (infoDiv) {
+                infoDiv.innerHTML = `<span class="status-dot status-live"></span> ⚠️ Erro: ${err.message} - pulando...`;
+            }
             setTimeout(() => {
                 ultimoIndice = -1;
                 updateLiveStream();
             }, 3000);
         });
-    } else if (document.getElementById('player').style.display !== 'none') {
-        // Sincronizar tempo para vídeos nativos
+    } else {
         const playerEl = document.getElementById('player');
-        if (!playerEl.paused && Math.abs(playerEl.currentTime - segundoNoVideo) > 2) {
+        if (playerEl && playerEl.style.display !== 'none' && !playerEl.paused && Math.abs(playerEl.currentTime - segundoNoVideo) > 2) {
             playerEl.currentTime = segundoNoVideo;
         }
     }
 }
 
-// EVENTOS E INICIALIZAÇÃO
+// ==================== INICIALIZAÇÃO ====================
 document.addEventListener('keydown', (e) => {
     if (e.key.toLowerCase() === 'a') {
         e.preventDefault();
         toggleAdmin();
     }
     if (e.key === 'Escape') {
-        document.getElementById('adminPanel').style.display = 'none';
+        const panel = document.getElementById('adminPanel');
+        if (panel) panel.style.display = 'none';
     }
 });
 
-// Prevenir mute automático do Chrome (interação do usuário)
+// Click para ativar som (Chrome)
 document.addEventListener('click', () => {
     if (!audioAtivado) {
         const playerEl = document.getElementById('player');
@@ -500,7 +632,8 @@ document.addEventListener('click', () => {
     }
 });
 
-loadPlaylist();
+// Iniciar
+loadPlaylistFromCloud();
 setInterval(updateLiveStream, 2000);
 updateLiveStream();
 </script>
