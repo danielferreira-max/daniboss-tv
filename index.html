@@ -1,213 +1,216 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8">
-<title>DANIBOSS TV - LIVE STREAMING</title>
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-<style>
-  * { box-sizing: border-box; }
-  body {
-    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    margin: 0; padding: 0;
-    background: #050505; color: #e5e5e5;
-    display: flex; flex-direction: column; height: 100vh;
-    overflow: hidden;
-  }
+    <meta charset="utf-8">
+    <title>DANIBOSS TV - ADMIN MODE</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0; background: #050505; color: #e5e5e5;
+            display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+        }
 
-  /* ESTRUTURA PRINCIPAL */
-  .main-layout { display: flex; flex: 1; overflow: hidden; position: relative; }
+        .main-layout { display: flex; flex: 1; overflow: hidden; }
+        .player-section { flex: 3; display: flex; flex-direction: column; background: #000; overflow-y: auto; }
+        
+        #stage { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; flex-shrink: 0; }
+        #player, #frame { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
 
-  /* ÁREA DO PLAYER (ESQUERDA) */
-  .player-section { flex: 3; position: relative; background: #000; display: flex; flex-direction: column; transition: all 0.3s ease; }
-  
-  /* ÁREA DO CHAT (DIREITA) */
-  .chat-section {
-    width: 320px; background: #0f0f0f; border-left: 1px solid #222;
-    display: flex; flex-direction: column; transition: all 0.3s ease;
-    position: relative;
-  }
-  .chat-section.hidden { width: 0; min-width: 0; overflow: hidden; border-left: none; }
+        .ui-footer { padding: 20px; background: #0a0a0a; border-top: 1px solid #222; }
+        .btn-sound {
+            padding: 12px 24px; background: #2563eb; color: white; border: none;
+            border-radius: 6px; font-weight: bold; cursor: pointer;
+        }
 
-  /* BOTÃO HIDE/SHOW CHAT */
-  .toggle-chat {
-    position: absolute; left: -40px; top: 15px; background: #1a1a1a;
-    color: #3b82f6; border: 1px solid #333; cursor: pointer;
-    padding: 8px; z-index: 2000; border-radius: 8px 0 0 8px;
-    font-weight: bold; font-size: 18px;
-  }
+        /* PAINEL ADMIN */
+        #adminPanel {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: #1a1a1a; padding: 25px; border-radius: 12px;
+            z-index: 10000; display: none; width: 90%; max-width: 600px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8); border: 1px solid #333;
+        }
+        #adminPanel h2 { margin-top: 0; color: #3b82f6; }
+        .admin-input { width: 100%; padding: 10px; margin: 5px 0; background: #000; border: 1px solid #444; color: white; }
+        .video-list { max-height: 200px; overflow-y: auto; margin: 15px 0; border: 1px solid #333; padding: 10px; }
+        .video-item { display: flex; justify-content: space-between; padding: 5px; border-bottom: 1px solid #222; font-size: 12px; }
+        .btn-del { color: #ff4444; cursor: pointer; }
+        .btn-close { background: #444; color: white; padding: 8px; border: none; cursor: pointer; width: 100%; margin-top: 10px; }
 
-  /* PLAYER E MARCA D'ÁGUA */
-  #stage { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; }
-  .watermark {
-    position: absolute; top: 25px; right: 25px;
-    z-index: 1000; opacity: 0.8; pointer-events: none;
-    display: flex; align-items: center; gap: 12px;
-  }
-  .watermark img { height: 45px; filter: drop-shadow(2px 2px 5px rgba(0,0,0,0.9)); }
-  .live-dot {
-    width: 10px; height: 10px; background: #ff0000;
-    border-radius: 50%; box-shadow: 0 0 10px #ff0000;
-    animation: blink 1.2s infinite;
-  }
-  @keyframes blink { 0% {opacity:1;} 50% {opacity:0.2;} 100% {opacity:1;} }
-
-  #player, #frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-
-  /* RODAPÉ (INFORMAÇÕES) */
-  .ui-footer { padding: 20px; background: #0a0a0a; border-top: 1px solid #222; }
-  #info { font-family: 'Courier New', Courier, monospace; color: #22c55e; font-size: 14px; margin-bottom: 10px; }
-  .btn-sound {
-    padding: 12px 24px; background: #2563eb; color: white;
-    border: none; border-radius: 6px; font-weight: bold;
-    cursor: pointer; transition: 0.2s;
-  }
-  .btn-sound:hover { background: #1d4ed8; transform: scale(1.05); }
-
-  /* TABELA DE PROGRAMAÇÃO */
-  .prog-table { width: 100%; margin-top: 15px; border-collapse: collapse; font-size: 12px; color: #888; }
-  .prog-table td { padding: 5px; border-top: 1px solid #111; }
-  .active-row { color: #3b82f6; font-weight: bold; background: rgba(59, 130, 246, 0.1); }
-
-  @media (max-width: 1000px) {
-    .main-layout { flex-direction: column; overflow-y: auto; }
-    .chat-section { min-width: 100%; height: 300px; }
-  }
-</style>
+        .prog-table { width: 100%; margin-top: 20px; border-collapse: collapse; }
+        .active-row { color: #3b82f6; font-weight: bold; background: rgba(59, 130, 246, 0.1); }
+        
+        .admin-trigger { position: fixed; bottom: 10px; right: 10px; opacity: 0.2; cursor: pointer; font-size: 10px; }
+    </style>
 </head>
 <body>
 
 <div class="main-layout">
-  <div class="player-section">
-    <div id="stage">
-      <div class="watermark">
-        <div class="live-dot"></div>
-        <img src="daniboss-tv-logo.png" alt="DANIBOSS TV">
-      </div>
-      
-      <video id="player" playsinline muted></video>
-      <iframe id="frame" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>
+    <div class="player-section">
+        <div id="stage">
+            <video id="player" playsinline muted></video>
+            <iframe id="frame" allow="autoplay; encrypted-media; fullscreen"></iframe>
+        </div>
+        
+        <div class="ui-footer">
+            <div id="info" style="color: #22c55e; margin-bottom: 10px;">Sincronizando...</div>
+            <button class="btn-sound" id="soundBtn" onclick="enableAudio()">🔊 ATIVAR SOM</button>
+            
+            <table class="prog-table">
+                <tbody id="progBody"></tbody>
+            </table>
+        </div>
     </div>
-    
-    <div class="ui-footer">
-      <div id="info">Sincronizando com a emissão global da Daniboss TV...</div>
-      <button class="btn-sound" id="soundBtn" onclick="enableAudio()">🔊 ATIVAR SOM EM DIRETO</button>
-      
-      <table class="prog-table">
-        <tbody id="progBody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="chat-section" id="chatBar">
-    <button class="toggle-chat" onclick="toggleChat()" title="Esconder/Mostrar Chat">💬</button>
-    <div class="chat-header" style="padding:15px; text-align:center; background: #1a1a1a; border-bottom: 1px solid #333;">CHAT AO VIVO</div>
-    <div class="chat-placeholder">
-       <div id="chatContent">
-         <p><b>Bem-vindo à Daniboss TV!</b></p>
-         <p>Partilha a tua opinião sobre o vídeo atual.</p>
-         <hr style="border: 0; border-top: 1px solid #222; margin: 20px 0;">
-         <p><small style="color:#555">O chat oficial será ativado brevemente via embed.</small></p>
-       </div>
-    </div>
-  </div>
 </div>
 
-<script>
-const player = document.getElementById('player');
-const frame = document.getElementById('frame');
-const info = document.getElementById('info');
-const soundBtn = document.getElementById('soundBtn');
+<div id="adminPanel">
+    <h2>Gestor Daniboss TV</h2>
+    <input type="text" id="newTitle" class="admin-input" placeholder="Título do Vídeo">
+    <input type="text" id="newUrl" class="admin-input" placeholder="URL (YouTube ou .m3u8)">
+    <div style="display:flex; gap: 10px;">
+        <input type="number" id="newStart" class="admin-input" placeholder="Início (seg)">
+        <input type="number" id="newEnd" class="admin-input" placeholder="Fim (seg)">
+    </div>
+    <button onclick="addVideo()" style="width:100%; padding: 10px; background: #22c55e; border: none; color: white; font-weight: bold; cursor:pointer;">+ ADICIONAR À PLAYLIST</button>
+    
+    <div class="video-list" id="adminVideoList"></div>
+    <button class="btn-close" onclick="toggleAdmin()">FECHAR GESTOR (ESC)</button>
+</div>
 
-// CONFIGURAÇÃO DA GRADE DE PROGRAMAÇÃO (Edita aqui no GitHub)
-const DURACAO_BLOCO = 300; // Cada vídeo tem um bloco de 5 minutos (300 segundos)
-const PLAYLIST = [
-  ['https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', 'Sinal de Teste (HLS)'],
-  ['https://www.youtube.com/watch?v=KSNUugQuweY', 'Clipe Musical YT'],
-  ['https://www.youtube.com/watch?v=ed2cwHEQIDM', 'TSMC Tech News 2026'],
-  ['https://www.youtube.com/watch?v=6X4c4Q8gY4o', '33 Estratégias de Vida'],
-  ['https://www.youtube.com/watch?v=8D_5xY4QJ0A', '5 Dicas de Negociação'],
-  ['https://www.youtube.com/watch?v=8f6S8LZg8U4', 'Psicologia e Negócios'],
-  ['https://www.youtube.com/watch?v=2R6yP8x2dJg', 'Técnicas de Persuasão'],
-  ['https://www.youtube.com/watch?v=6gG2ZZU6H5U', 'Evitar Conflitos'],
-  ['https://www.youtube.com/watch?v=2q1Y0Vg6z4c', 'Decisões Baseadas em Dados'],
-  ['https://www.youtube.com/watch?v=Q2D1l6yF3mA', 'Gestão de Crise']
+<div class="admin-trigger" onclick="toggleAdmin()">ADMIN MODE (Pressione A)</div>
+
+<script>
+// PLAYLIST INICIAL (Caso o localStorage esteja vazio)
+const DEFAULT_PLAYLIST = [
+    { url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', title: 'Sinal de Teste', start: 0, end: 300 },
+    { url: 'https://www.youtube.com/watch?v=KSNUugQuweY', title: 'Exemplo YouTube', start: 10, end: 60 }
 ];
 
+let playlist = JSON.parse(localStorage.getItem('daniboss_playlist')) || DEFAULT_PLAYLIST;
 let ultimoIndice = -1;
 let audioAtivado = false;
 
-function toggleChat() { document.getElementById('chatBar').classList.toggle('hidden'); }
+function savePlaylist() {
+    localStorage.setItem('daniboss_playlist', JSON.stringify(playlist));
+    renderAdminList();
+    renderProgTable();
+}
+
+function addVideo() {
+    const title = document.getElementById('newTitle').value;
+    const url = document.getElementById('newUrl').value;
+    const start = parseInt(document.getElementById('newStart').value) || 0;
+    const end = parseInt(document.getElementById('newEnd').value) || 300;
+
+    if(title && url) {
+        playlist.push({ title, url, start, end });
+        savePlaylist();
+        alert("Vídeo adicionado!");
+    }
+}
+
+function removeVideo(index) {
+    playlist.splice(index, 1);
+    savePlaylist();
+}
+
+function toggleAdmin() {
+    const panel = document.getElementById('adminPanel');
+    panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+    renderAdminList();
+}
+
+function renderAdminList() {
+    const list = document.getElementById('adminVideoList');
+    list.innerHTML = playlist.map((v, i) => `
+        <div class="video-item">
+            <span>${v.title} (${v.end - v.start}s)</span>
+            <span class="btn-del" onclick="removeVideo(${i})">REMOVER</span>
+        </div>
+    `).join('');
+}
+
+function renderProgTable() {
+    const progBody = document.getElementById('progBody');
+    progBody.innerHTML = playlist.map((v, i) => `
+        <tr id="prog-${i}">
+            <td style="padding:10px; border-top:1px solid #222;">${i+1}. ${v.title}</td>
+        </tr>
+    `).join('');
+}
 
 function enableAudio() {
-    player.muted = false;
     audioAtivado = true;
-    soundBtn.style.display = 'none';
-    info.innerText = "Transmissão Sincronizada - Áudio Ativado";
+    document.getElementById('player').muted = false;
+    document.getElementById('soundBtn').style.display = 'none';
+    ultimoIndice = -1; // Força recarregamento com som
+    updateLiveStream();
 }
 
 function updateLiveStream() {
+    if (playlist.length === 0) return;
+
     const agora = Math.floor(Date.now() / 1000);
-    const tempoTotalPlaylist = PLAYLIST.length * DURACAO_BLOCO;
-    const resto = agora % tempoTotalPlaylist;
     
-    const indiceAtual = Math.floor(resto / DURACAO_BLOCO);
-    const segundoNoVideo = resto % DURACAO_BLOCO;
+    // Cálculo de tempos variáveis
+    let tempoTotalCiclo = 0;
+    playlist.forEach(v => tempoTotalCiclo += (v.end - v.start));
+    
+    let resto = agora % tempoTotalCiclo;
+    let acumulado = 0;
+    let indiceAtual = 0;
+    let segundoNoVideoRelativo = 0;
 
-    // Atualiza a tabela visual
-    const progBody = document.getElementById('progBody');
-    if (progBody.innerHTML === "") {
-        PLAYLIST.forEach((v, i) => {
-            progBody.innerHTML += `<tr id="prog-${i}"><td>${i+1}</td><td>${v[1]}</td></tr>`;
-        });
+    for (let i = 0; i < playlist.length; i++) {
+        let duracao = playlist[i].end - playlist[i].start;
+        if (resto < acumulado + duracao) {
+            indiceAtual = i;
+            segundoNoVideoRelativo = playlist[i].start + (resto - acumulado);
+            break;
+        }
+        acumulado += duracao;
     }
-    document.querySelectorAll('.prog-table tr').forEach(r => r.classList.remove('active-row'));
-    document.getElementById(`prog-${indiceAtual}`).classList.add('active-row');
 
-    // Troca o vídeo apenas se o índice mudou
+    // Atualiza UI
+    document.querySelectorAll('.prog-table tr').forEach(r => r.classList.remove('active-row'));
+    if(document.getElementById(`prog-${indiceAtual}`)) {
+        document.getElementById(`prog-${indiceAtual}`).classList.add('active-row');
+    }
+
     if (indiceAtual !== ultimoIndice) {
         ultimoIndice = indiceAtual;
-        const url = PLAYLIST[indiceAtual][0];
-        const nome = PLAYLIST[indiceAtual][1];
-        const isYT = url.includes('youtube.com') || url.includes('youtu.be');
-
-        info.innerText = `[EMISSÃO] A passar agora: ${nome}`;
+        const video = playlist[indiceAtual];
+        const isYT = video.url.includes('youtube') || video.url.includes('youtu.be');
+        
+        document.getElementById('info').innerText = `[EM DIRETO] ${video.title}`;
 
         if (isYT) {
-            const id = url.match(/(?:v=|shorts\/|be\/)([A-Za-z0-9_-]{11})/)[1];
-            // Parametros: autoplay, mudo se não autorizado, start sincronizado, loop no bloco
-            frame.src = `https://www.youtube.com/embed/${id}?autoplay=1&controls=0&mute=${audioAtivado ? 0 : 1}&start=${segundoNoVideo}&playlist=${id}&loop=1`;
-            frame.style.display = 'block';
-            player.style.display = 'none';
-            player.pause();
+            const id = video.url.match(/(?:v=|be\/)([A-Za-z0-9_-]{11})/)[1];
+            document.getElementById('frame').src = `https://www.youtube.com/embed/${id}?autoplay=1&controls=0&mute=${audioAtivado?0:1}&start=${segundoNoVideoRelativo}`;
+            document.getElementById('frame').style.display = 'block';
+            document.getElementById('player').style.display = 'none';
+            document.getElementById('player').pause();
         } else {
-            frame.style.display = 'none';
-            frame.src = "about:blank";
-            player.style.display = 'block';
-            
-            if (url.includes('.m3u8')) {
-                if (Hls.isSupported()) {
-                    const hls = new Hls(); hls.loadSource(url); hls.attachMedia(player);
-                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                        player.currentTime = segundoNoVideo;
-                        player.play().catch(() => { player.muted = true; player.play(); });
-                    });
-                }
-            } else {
-                player.src = url;
-                player.onloadedmetadata = () => {
-                    player.currentTime = segundoNoVideo;
-                    player.play().catch(() => { player.muted = true; player.play(); });
-                };
-            }
+            // Lógica para HLS/MP4 (similar à anterior)
+            const p = document.getElementById('player');
+            document.getElementById('frame').style.display = 'none';
+            p.style.display = 'block';
+            p.src = video.url;
+            p.currentTime = segundoNoVideoRelativo;
+            p.play().catch(() => {});
         }
     }
 }
 
-// MOTOR DE SINCRONIZAÇÃO (Verifica a cada 2 segundos se o vídeo deve mudar)
-setInterval(updateLiveStream, 2000);
+// Atalho de teclado: tecla 'A' abre admin
+document.addEventListener('keydown', (e) => {
+    if(e.key.toLowerCase() === 'a') toggleAdmin();
+    if(e.key === 'Escape') document.getElementById('adminPanel').style.display = 'none';
+});
 
-// Inicia mal a página carrega
-window.onload = updateLiveStream;
+setInterval(updateLiveStream, 2000);
+window.onload = () => { renderProgTable(); updateLiveStream(); };
 </script>
 </body>
 </html>
