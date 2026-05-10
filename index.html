@@ -7,35 +7,37 @@
 <style>
   * { box-sizing: border-box; }
   body {
-    font-family: 'Segoe UI', sans-serif;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     margin: 0; padding: 0;
     background: #050505; color: #e5e5e5;
     display: flex; flex-direction: column; height: 100vh;
+    overflow: hidden;
   }
 
-  /* LAYOUT PRINCIPAL */
+  /* ESTRUTURA PRINCIPAL */
   .main-layout {
     display: flex;
     flex: 1;
     overflow: hidden;
   }
 
-  /* ÁREA DO PLAYER (LADO ESQUERDO) */
+  /* PLAYER (ESQUERDA) */
   .player-section {
-    flex: 3; /* Ocupa 75% da largura */
+    flex: 3;
     position: relative;
     background: #000;
-    display: flex; flex-direction: column;
+    display: flex;
+    flex-direction: column;
   }
 
-  /* ÁREA DO CHAT (LADO DIREITO) */
+  /* CHAT (DIREITA) */
   .chat-section {
-    flex: 1; /* Ocupa 25% da largura */
-    background: #111;
+    flex: 1;
+    background: #0f0f0f;
     border-left: 1px solid #222;
     display: flex;
     flex-direction: column;
-    min-width: 300px;
+    min-width: 320px;
   }
 
   .chat-header {
@@ -45,6 +47,7 @@
     border-bottom: 1px solid #333;
     text-align: center;
     color: #3b82f6;
+    letter-spacing: 1px;
   }
 
   .chat-placeholder {
@@ -52,35 +55,69 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 20px;
+    padding: 30px;
     text-align: center;
-    color: #555;
+    color: #444;
     font-size: 14px;
+    line-height: 1.6;
   }
 
-  /* PLAYER E MARCA D'ÁGUA */
-  #stage { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; }
-  .watermark {
-    position: absolute; top: 20px; right: 20px;
-    z-index: 1000; opacity: 0.7; pointer-events: none;
-    display: flex; align-items: center; gap: 10px;
+  /* ÁREA DO VÍDEO */
+  #stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #000;
   }
-  .watermark img { height: 40px; }
+
+  /* MARCA D'ÁGUA */
+  .watermark {
+    position: absolute;
+    top: 25px; right: 25px;
+    z-index: 1000;
+    opacity: 0.7;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .watermark img { height: 45px; filter: drop-shadow(2px 2px 5px rgba(0,0,0,0.8)); }
   .live-dot {
-    width: 10px; height: 10px; background: red; border-radius: 50%;
-    box-shadow: 0 0 8px red; animation: blink 1.2s infinite;
+    width: 10px; height: 10px; background: #ff0000;
+    border-radius: 50%; box-shadow: 0 0 10px #ff0000;
+    animation: blink 1.2s infinite;
   }
   @keyframes blink { 0% {opacity:1;} 50% {opacity:0.2;} 100% {opacity:1;} }
 
   #player, #frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 
-  /* UI E INFOS */
-  .ui-footer { padding: 15px; background: #0a0a0a; border-top: 1px solid #222; }
-  #info { font-family: monospace; color: #22c55e; font-size: 13px; }
+  /* RODAPÉ E BOTÕES */
+  .ui-footer {
+    padding: 20px;
+    background: #0a0a0a;
+    border-top: 1px solid #222;
+  }
+  #info {
+    font-family: 'Courier New', Courier, monospace;
+    color: #22c55e;
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+  .btn-sound {
+    padding: 10px 20px;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+  .btn-sound:hover { background: #1d4ed8; }
 
-  @media (max-width: 900px) {
-    .main-layout { flex-direction: column; }
-    .chat-section { min-width: 100%; height: 300px; }
+  @media (max-width: 1000px) {
+    .main-layout { flex-direction: column; overflow-y: auto; }
+    .chat-section { min-width: 100%; height: 400px; }
   }
 </style>
 </head>
@@ -93,27 +130,25 @@
         <div class="live-dot"></div>
         <img src="daniboss-tv-logo.png" alt="DANIBOSS TV">
       </div>
+      
       <video id="player" playsinline muted></video>
-      <iframe id="frame" allow="autoplay; encrypted-media;"></iframe>
+      <iframe id="frame" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>
     </div>
     
     <div class="ui-footer">
-      <div id="info">Sincronizando com a emissão global...</div>
-      <button onclick="unmute()" id="soundBtn" style="margin-top:10px; padding:8px; cursor:pointer; background:#3b82f6; border:0; color:#fff; border-radius:4px;">
-        🔊 ATIVAR SOM
-      </button>
+      <div id="info">A ligar aos servidores da Daniboss TV...</div>
+      <button class="btn-sound" id="soundBtn" onclick="enableAudio()">🔊 ATIVAR SOM DO CANAL</button>
     </div>
   </div>
 
   <div class="chat-section">
-    <div class="chat-header">CHAT AO VIVO</div>
-    
+    <div class="chat-header">CHAT EM DIRETO</div>
     <div class="chat-placeholder" id="chatContainer">
       <div>
-        <p>O Chat da Daniboss TV será ativado em breve.</p>
-        <small>Para testar agora, você pode inserir um widget do Cbox.ws aqui.</small>
+        <p><b>Bem-vindo à Daniboss TV!</b></p>
+        <p>O chat será ativado brevemente.<br>Conecta-te com outros espetadores em tempo real.</p>
       </div>
-      </div>
+    </div>
   </div>
 </div>
 
@@ -121,61 +156,92 @@
 const player = document.getElementById('player');
 const frame = document.getElementById('frame');
 const info = document.getElementById('info');
+const soundBtn = document.getElementById('soundBtn');
 
-const DURACAO_BLOCO = 300; // Cada vídeo ocupa 5 minutos na grade de programação
+const DURACAO_BLOCO = 300; // 5 minutos por cada vídeo na grelha
+
+// LISTA DE VÍDEOS PRESERVADA
 const DATA = [
-  ['https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', 'Abertura'],
+  ['https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', 'Sinal de Teste HLS'],
   ['https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', 'Curta Metragem'],
-  ['https://www.youtube.com/watch?v=KSNUugQuweY', 'Clipe 1'],
-  ['https://www.youtube.com/watch?v=w-15vFFBnCc', 'Clipe 2'],
-  ['https://www.youtube.com/watch?v=ed2cwHEQIDM', 'TSMC Tech'],
-  ['https://www.youtube.com/watch?v=6X4c4Q8gY4o', 'Estratégias'],
-  ['https://www.youtube.com/watch?v=8D_5xY4QJ0A', 'Dicas Negociar']
+  ['https://www.youtube.com/watch?v=KSNUugQuweY', 'Clipe Musical'],
+  ['https://www.youtube.com/watch?v=w-15vFFBnCc', 'Ação YT'],
+  ['https://www.youtube.com/watch?v=ed2cwHEQIDM', 'TSMC Q1 2026'],
+  ['https://www.youtube.com/watch?v=6X4c4Q8gY4o', '33 Estratégias'],
+  ['https://www.youtube.com/watch?v=8D_5xY4QJ0A', '5 Dicas Negociar'],
+  ['https://www.youtube.com/watch?v=8f6S8LZg8U4', 'Psicologia'],
+  ['https://www.youtube.com/watch?v=2R6yP8x2dJg', 'Técnicas Persuasão'],
+  ['https://www.youtube.com/watch?v=6gG2ZZU6H5U', 'Conflitos'],
+  ['https://www.youtube.com/watch?v=2q1Y0Vg6z4c', 'Decisão'],
+  ['https://www.youtube.com/watch?v=Q2D1l6yF3mA', 'Gestão']
 ];
 
-function unmute() {
+let ultimoIndice = -1;
+let audioAtivado = false;
+
+function enableAudio() {
     player.muted = false;
-    document.getElementById('soundBtn').style.display = 'none';
-    info.innerText = "Sincronizado e com áudio!";
+    audioAtivado = true;
+    soundBtn.style.display = 'none';
+    info.innerText = "Transmissão em Direto - Áudio Ativado";
 }
 
-function syncStream() {
+function updateLiveStream() {
     const agora = Math.floor(Date.now() / 1000);
     const tempoTotal = DATA.length * DURACAO_BLOCO;
     const resto = agora % tempoTotal;
     
-    const indice = Math.floor(resto / DURACAO_BLOCO);
+    const indiceAtual = Math.floor(resto / DURACAO_BLOCO);
     const segundoNoVideo = resto % DURACAO_BLOCO;
-    
-    const videoUrl = DATA[indice][0];
-    const videoNome = DATA[indice][1];
-    const isYT = videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be');
 
-    info.innerText = `[LIVE] Passando agora: ${videoNome} (Sincronizado)`;
+    // Só atualiza se mudar o vídeo para não interromper o que está a dar
+    if (indiceAtual !== ultimoIndice) {
+        ultimoIndice = indiceAtual;
+        const url = DATA[indiceAtual][0];
+        const nome = DATA[indiceAtual][1];
+        const isYT = url.includes('youtube.com') || url.includes('youtu.be');
 
-    if (isYT) {
-        const id = videoUrl.match(/(?:v=|shorts\/|be\/)([A-Za-z0-9_-]{11})/)[1];
-        frame.src = `https://www.youtube.com/embed/${id}?autoplay=1&controls=0&mute=1&start=${segundoNoVideo}`;
-        frame.style.display = 'block'; player.style.display = 'none';
-    } else {
-        frame.style.display = 'none'; player.style.display = 'block';
-        if (videoUrl.includes('.m3u8')) {
-            if (Hls.isSupported()) {
-                const hls = new Hls(); hls.loadSource(videoUrl); hls.attachMedia(player);
-                hls.on(Hls.Events.MANIFEST_PARSED, () => { player.currentTime = segundoNoVideo; player.play(); });
-            }
+        info.innerText = `[EMISSÃO] A passar: ${nome}`;
+
+        if (isYT) {
+            const id = url.match(/(?:v=|shorts\/|be\/)([A-Za-z0-9_-]{11})/)[1];
+            // Start sincronizado + Loop para preencher os 5min caso o vídeo seja curto
+            frame.src = `https://www.youtube.com/embed/${id}?autoplay=1&controls=0&mute=${audioAtivado ? 0 : 1}&start=${segundoNoVideo}&playlist=${id}&loop=1`;
+            frame.style.display = 'block';
+            player.style.display = 'none';
+            player.pause();
         } else {
-            player.src = videoUrl;
-            player.onloadedmetadata = () => { player.currentTime = segundoNoVideo; player.play(); };
+            frame.style.display = 'none';
+            frame.src = "about:blank";
+            player.style.display = 'block';
+            
+            if (url.includes('.m3u8')) {
+                if (Hls.isSupported()) {
+                    const hls = new Hls();
+                    hls.loadSource(url);
+                    hls.attachMedia(player);
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                        player.currentTime = segundoNoVideo;
+                        player.play().catch(e => console.log("Autoplay blocked"));
+                    });
+                }
+            } else {
+                player.src = url;
+                player.onloadedmetadata = () => {
+                    player.currentTime = segundoNoVideo;
+                    player.play().catch(e => console.log("Autoplay blocked"));
+                };
+            }
         }
     }
-
-    // Agenda a próxima troca de vídeo exatamente no fim do bloco de 5min
-    const delay = (DURACAO_BLOCO - segundoNoVideo) * 1000;
-    setTimeout(syncStream, delay);
 }
 
-window.onload = syncStream;
+// MOTOR DE SINCRONIZAÇÃO (Verifica a cada 2 segundos)
+setInterval(updateLiveStream, 2000);
+
+// Início imediato
+window.onload = updateLiveStream;
+
 </script>
 </body>
 </html>
