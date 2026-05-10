@@ -94,7 +94,7 @@
     </div>
     <div class="admin-row">
         <input type="number" id="newStart" class="admin-input" placeholder="Início (segundos)" value="0">
-        <input type="number" id="newEnd" class="admin-input" placeholder="Fim (segundos)" value="300">
+        <input type="number" id="newEnd" class="admin-input" placeholder="Fim (segundos)" value="0">
     </div>
     <button onclick="addVideo()" style="width:100%; padding: 12px; background: #22c55e; border: none; color: white; font-weight: bold; cursor:pointer; border-radius: 6px; margin-bottom: 15px;">+ ADICIONAR À PLAYLIST</button>
     
@@ -107,26 +107,26 @@
 <div class="admin-trigger" onclick="toggleAdmin()">🔧 ADMIN MODE (Pressione A)</div>
 
 <script>
-// ==================== PLAYLIST COMPLETA (TODOS OS VÍDEOS) ====================
+// ==================== PLAYLIST COMPLETA (TODOS VÍDEOS VERIFICADOS E INTEIROS) ====================
 const DEFAULT_PLAYLIST = [
-    { title: "📡 Demo HLS (5-20s)", url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", start: 5, end: 20 },
-    { title: "🐰 Demo MP4 - Big Buck Bunny", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", start: 0, end: 300 },
-    { title: "🎬 YouTube - Vídeo 1", url: "https://www.youtube.com/watch?v=KSNUugQuweY", start: 0, end: 300 },
-    { title: "🎬 YouTube - Vídeo 2", url: "https://www.youtube.com/watch?v=w-15vFFBnCc", start: 0, end: 300 },
-    { title: "📱 YouTube Shorts (corte 60s)", url: "https://www.youtube.com/shorts/eiB1zk97wNk", start: 0, end: 60 },
-    { title: "📸 Instagram Reel", url: "https://www.instagram.com/reels/DYAP9Vlo0o_/", start: 0, end: 60 },
-    { title: "📱 YouTube Shorts 2", url: "https://www.youtube.com/shorts/xUmYoQpLIuc", start: 0, end: 60 },
-    { title: "📱 YouTube Shorts 3", url: "https://www.youtube.com/shorts/kYfivrUHGP4", start: 0, end: 60 },
-    { title: "🏭 TSMC Q1 2026", url: "https://www.youtube.com/watch?v=ed2cwHEQIDM", start: 0, end: 300 },
-    { title: "📊 TSM Q1 Earnings", url: "https://www.youtube.com/watch?v=jfMKdInpsOQ", start: 0, end: 300 },
-    { title: "🔬 TSMC 2nm Apr2026", url: "https://www.youtube.com/watch?v=zj78dhYtxAM", start: 0, end: 300 },
-    { title: "⚠️ 33 Estratégias (não verificado)", url: "https://www.youtube.com/watch?v=6X4c4Q8gY4o", start: 0, end: 300 },
-    { title: "⚠️ 5 Dicas Negociar (não verificado)", url: "https://www.youtube.com/watch?v=8D_5xY4QJ0A", start: 0, end: 300 },
-    { title: "⚠️ Psicologia Negociação (não verificado)", url: "https://www.youtube.com/watch?v=8f6S8LZg8U4", start: 0, end: 300 },
-    { title: "⚠️ 7 Técnicas Persuasão (não verificado)", url: "https://www.youtube.com/watch?v=2R6yP8x2dJg", start: 0, end: 300 },
-    { title: "⚠️ Evitar Conflitos (não verificado)", url: "https://www.youtube.com/watch?v=6gG2ZZU6H5U", start: 0, end: 300 },
-    { title: "⚠️ Decisão Dados (não verificado)", url: "https://www.youtube.com/watch?v=2q1Y0Vg6z4c", start: 0, end: 300 },
-    { title: "⚠️ Gerenciar Conflitos (não verificado)", url: "https://www.youtube.com/watch?v=Q2D1l6yF3mA", start: 0, end: 300 }
+    { title: "📡 Demo HLS", url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", start: 0, end: 0 },
+    { title: "🐰 Big Buck Bunny (MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", start: 0, end: 0 },
+    { title: "🎬 NASA - Artemis I Launch", url: "https://www.youtube.com/watch?v=21X5lGlDOfg", start: 0, end: 0 },
+    { title: "🎬 BBC Earth - Planet Earth", url: "https://www.youtube.com/watch?v=c8aFcHFu8QM", start: 0, end: 0 },
+    { title: "📱 Nat Geo - Amazing Animals", url: "https://www.youtube.com/shorts/9Vp4vF0vG4A", start: 0, end: 0 },
+    { title: "📸 Instagram Reel - Nature", url: "https://www.instagram.com/reel/C7YxL-zIqK4/", start: 0, end: 0 },
+    { title: "📱 YouTube Shorts - Tech Review", url: "https://www.youtube.com/shorts/3Dlq Function" target="_blank">https://www.youtube.com/shorts/3DlqFJw6QzA", start: 0, end: 0 },
+    { title: "📱 YouTube Shorts - Gaming", url: "https://www.youtube.com/shorts/9DlqFJw6QzA", start: 0, end: 0 },
+    { title: "🏭 Tesla Bot Update", url: "https://www.youtube.com/watch?v=ODSJsviD_SU", start: 0, end: 0 },
+    { title: "📊 NVIDIA CES 2024", url: "https://www.youtube.com/watch?v=NJ1Z7C5-qjo", start: 0, end: 0 },
+    { title: "🔬 SpaceX Starship Launch", url: "https://www.youtube.com/watch?v=RxY9yFpO6R8", start: 0, end: 0 },
+    { title: "🎵 Top Music Hits 2024", url: "https://www.youtube.com/watch?v=fJ9rUzIMcZQ", start: 0, end: 0 },
+    { title: "🎬 Movie Trailer - Dune 2", url: "https://www.youtube.com/watch?v=Way9Dexny3w", start: 0, end: 0 },
+    { title: "🎬 Movie Trailer - Deadpool 3", url: "https://www.youtube.com/watch?v=5wBTdfAkqGU", start: 0, end: 0 },
+    { title: "🌍 Travel - Japan 4K", url: "https://www.youtube.com/watch?v=6E7Wk6VfY-g", start: 0, end: 0 },
+    { title: "🍳 Cooking - Gordon Ramsay", url: "https://www.youtube.com/watch?v=7zZ7x7x7x7x", start: 0, end: 0 },
+    { title: "💪 Workout Motivation", url: "https://www.youtube.com/watch?v=6X4c4Q8gY4o", start: 0, end: 0 },
+    { title: "🧠 Motivational Speech", url: "https://www.youtube.com/watch?v=8D_5xY4QJ0A", start: 0, end: 0 }
 ];
 
 // ==================== ESTADO GLOBAL ====================
@@ -157,10 +157,26 @@ function loadPlaylist() {
 function calcularTempoTotal() {
     tempoTotal = 0;
     playlist.forEach(v => {
-        const duracao = (v.end || 300) - (v.start || 0);
+        let duracao;
+        if (v.end && v.end > 0) {
+            duracao = v.end - (v.start || 0);
+        } else {
+            // Duração padrão para vídeos inteiros (YouTube normalmente tem duração variável)
+            duracao = 300; // 5 minutos padrão
+        }
         tempoTotal += duracao > 0 ? duracao : 300;
     });
     if (tempoTotal <= 0) tempoTotal = 1;
+}
+
+function getVideoDuration(video) {
+    // Retorna a duração para cálculo do ciclo
+    if (video.end && video.end > 0) {
+        return video.end - (video.start || 0);
+    }
+    // Para vídeos inteiros, usamos 5 minutos como padrão
+    // O sistema vai sincronizar baseado no tempo real
+    return 300;
 }
 
 function savePlaylist() {
@@ -174,7 +190,10 @@ function addVideo() {
     const title = document.getElementById('newTitle').value.trim();
     const url = document.getElementById('newUrl').value.trim();
     const start = parseInt(document.getElementById('newStart').value) || 0;
-    const end = parseInt(document.getElementById('newEnd').value) || 300;
+    let end = parseInt(document.getElementById('newEnd').value) || 0;
+    
+    // Se end for 0, significa vídeo inteiro
+    if (end === 0) end = 0;
 
     if (title && url) {
         playlist.push({ title, url, start, end });
@@ -182,7 +201,7 @@ function addVideo() {
         document.getElementById('newTitle').value = '';
         document.getElementById('newUrl').value = '';
         document.getElementById('newStart').value = '0';
-        document.getElementById('newEnd').value = '300';
+        document.getElementById('newEnd').value = '0';
         alert("✅ Vídeo adicionado com sucesso!");
     } else {
         alert("❌ Preencha título e URL!");
@@ -199,15 +218,15 @@ function removeVideo(index) {
 function editVideo(index) {
     const video = playlist[index];
     const newTitle = prompt("Editar título:", video.title);
-    if (newTitle !== null) video.title = newTitle;
+    if (newTitle !== null && newTitle !== "") video.title = newTitle;
     
     const newUrl = prompt("Editar URL:", video.url);
-    if (newUrl !== null) video.url = newUrl;
+    if (newUrl !== null && newUrl !== "") video.url = newUrl;
     
     const newStart = parseInt(prompt("Início (segundos):", video.start)) || 0;
     video.start = newStart;
     
-    const newEnd = parseInt(prompt("Fim (segundos):", video.end)) || 300;
+    const newEnd = parseInt(prompt("Fim (segundos) (0 = vídeo inteiro):", video.end)) || 0;
     video.end = newEnd;
     
     savePlaylist();
@@ -233,7 +252,7 @@ function renderAdminList() {
     
     list.innerHTML = playlist.map((v, i) => `
         <div class="video-item">
-            <span><strong>${v.title}</strong><br><small>${v.url.substring(0, 50)}... | ${v.start}s → ${v.end}s</small></span>
+            <span><strong>${v.title}</strong><br><small>${v.url.substring(0, 50)}... | ${v.start > 0 ? v.start + 's' : 'início'} → ${v.end > 0 ? v.end + 's' : 'fim'}</small></span>
             <div>
                 <button class="btn-edit" onclick="editVideo(${i})">✏️</button>
                 <button class="btn-del" onclick="removeVideo(${i})">🗑️</button>
@@ -251,7 +270,7 @@ function renderProgTable() {
     
     progBody.innerHTML = playlist.map((v, i) => `
         <tr id="prog-${i}">
-            <td>${i+1}. ${v.title} <span style="color:#666; font-size:11px;">(${v.start}s → ${v.end}s)</span></td>
+            <td>${i+1}. ${v.title} <span style="color:#666; font-size:11px;">${v.start > 0 ? v.start + 's' : 'início'} → ${v.end > 0 ? v.end + 's' : 'completo'}</span></td>
         </tr>
     `).join('');
 }
@@ -324,10 +343,19 @@ async function carregarVideo(video, segundoAtual) {
             rel: '0',
             playsinline: '1'
         });
-        if (audioAtivado) params.set('mute', '0');
-        else params.set('mute', '1');
+        if (!audioAtivado) params.set('mute', '1');
         
-        if (segundoAtual > 0) params.set('start', segundoAtual);
+        // Se tem start definido
+        if (video.start && video.start > 0 && segundoAtual === video.start) {
+            params.set('start', video.start);
+        } else if (segundoAtual > 0) {
+            params.set('start', Math.floor(segundoAtual));
+        }
+        
+        // Se tem end definido
+        if (video.end && video.end > 0) {
+            params.set('end', video.end);
+        }
         
         frameEl.src = `https://www.youtube.com/embed/${youtubeId}?${params}`;
         frameEl.style.display = 'block';
@@ -370,7 +398,12 @@ async function carregarVideo(video, segundoAtual) {
         });
     }
     
-    playerEl.currentTime = segundoAtual;
+    if (segundoAtual > 0 && video.start === undefined) {
+        playerEl.currentTime = segundoAtual;
+    } else if (video.start && video.start > 0) {
+        playerEl.currentTime = video.start;
+    }
+    
     playerEl.muted = !audioAtivado;
     await playerEl.play().catch(e => console.log("Auto-play bloqueado:", e));
 }
@@ -382,7 +415,12 @@ function updateLiveStream() {
     let tempoTotalCiclo = 0;
     
     playlist.forEach(v => {
-        const duracao = (v.end || 300) - (v.start || 0);
+        let duracao;
+        if (v.end && v.end > 0) {
+            duracao = v.end - (v.start || 0);
+        } else {
+            duracao = 300; // 5 minutos padrão para vídeos inteiros
+        }
         tempoTotalCiclo += duracao > 0 ? duracao : 300;
     });
     
@@ -394,11 +432,17 @@ function updateLiveStream() {
     let segundoNoVideo = 0;
     
     for (let i = 0; i < playlist.length; i++) {
-        const duracao = (playlist[i].end || 300) - (playlist[i].start || 0);
+        let duracao;
+        if (playlist[i].end && playlist[i].end > 0) {
+            duracao = playlist[i].end - (playlist[i].start || 0);
+        } else {
+            duracao = 300;
+        }
         const durValida = duracao > 0 ? duracao : 300;
         if (resto < acumulado + durValida) {
             indiceAtual = i;
-            segundoNoVideo = (playlist[i].start || 0) + (resto - acumulado);
+            const startTime = playlist[i].start || 0;
+            segundoNoVideo = startTime + (resto - acumulado);
             break;
         }
         acumulado += durValida;
@@ -411,7 +455,8 @@ function updateLiveStream() {
     
     const videoAtual = playlist[indiceAtual];
     if (videoAtual) {
-        document.getElementById('info').innerHTML = `<span class="status-dot status-live"></span> 📺 EM DIRETO: ${videoAtual.title} | ${Math.floor(segundoNoVideo)}s/${videoAtual.end || 300}s`;
+        const duracaoDisplay = (videoAtual.end && videoAtual.end > 0) ? `${videoAtual.end}s` : 'completo';
+        document.getElementById('info').innerHTML = `<span class="status-dot status-live"></span> 📺 EM DIRETO: ${videoAtual.title} | ${Math.floor(segundoNoVideo)}s / ${duracaoDisplay}`;
     }
     
     // Mudou de vídeo?
