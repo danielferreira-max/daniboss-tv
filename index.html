@@ -226,12 +226,12 @@ tr.active td { border-color: #3b82f6; }
 
 <h2>
   🎬 Daniboss TV
-  <span class="badge">Firebase · YouTube · Instagram · MP4 · HLS</span>
+  <span class="badge">Canal TV · Firebase · Shuffle · Autoplay</span>
 </h2>
 
 <div class="player-container">
   <div id="stage">
-    <video id="player" controls playsinline muted></video>
+    <video id="player" controls playsinline></video>
 
     <iframe
       id="frame"
@@ -256,13 +256,14 @@ tr.active td { border-color: #3b82f6; }
   <button id="nextBtn" class="secondary">⏭ Próximo</button>
 
   <label class="toggle">
-    <input type="checkbox" id="shuffleBtn"> 🔀 Shuffle
+    <input type="checkbox" id="shuffleBtn" checked> 🔀 Shuffle
   </label>
 </div>
 
 <div class="warn">
   <strong>📌 Notas:</strong>
   A playlist vem apenas do Firebase. Se removeres um vídeo e salvares, ele não volta.
+  O modo canal tenta manter todos os visitantes no mesmo item da playlist.
 </div>
 
 <div class="playlist-header">
@@ -311,7 +312,9 @@ firebase.initializeApp(firebaseConfig);
 
 const db = firebase.firestore();
 const auth = firebase.auth();
+
 const PLAYLIST_DOC = db.collection('playlists').doc('principal');
+const CHANNEL_DOC = db.collection('channel').doc('daniboss-tv');
 
 // ==================== DOM ====================
 const player = document.getElementById('player');
@@ -329,13 +332,23 @@ const saveBtn = document.getElementById('saveBtn');
 let videos = [];
 let order = [];
 let currentPos = 0;
+
 let activeHls = null;
 let timeUpdateHandler = null;
 let frameTimeout = null;
+
 let isPlaying = false;
-let isShuffled = false;
+let isShuffled = true;
 let isSaving = false;
+
 let unsubscribeFirebase = null;
+let unsubscribeChannel = null;
+
+let watchdogTimer = null;
+let lastVideoTime = 0;
+let stalledSeconds = 0;
+
+let localChannelUpdate = false;
 
 // ==================== INFO ====================
 function setInfo(message, isError = false) {
@@ -355,7 +368,7 @@ async function iniciarAuth() {
   }
 }
 
-// ==================== FIREBASE ====================
+// ==================== FIREBASE PLAYLIST ====================
 async function carregarPlaylistFirebase() {
   try {
     setInfo('☁️ A carregar playlist do Firebase...');
@@ -420,16 +433,13 @@ async function salvarPlaylistFirebase() {
 }
 
 function ouvirPlaylistFirebase() {
-  if (unsubscribeFirebase) {
-    unsubscribeFirebase();
-  }
+  if (unsubscribeFirebase) unsubscribeFirebase();
 
   unsubscribeFirebase = PLAYLIST_DOC.onSnapshot(snapshot => {
     if (isSaving) return;
     if (!snapshot.exists) return;
 
     const data = snapshot.data();
-
     if (!Array.isArray(data.videos)) return;
 
     renderPlaylist(data.videos);
@@ -442,6 +452,52 @@ function ouvirPlaylistFirebase() {
   }, error => {
     console.error(error);
     setInfo(`Erro ao sincronizar Firebase: ${error.message}`, true);
+  });
+}
+
+// ==================== CANAL TV ====================
+async function atualizarCanalTV() {
+  if (!order.length) return;
+
+  try {
+    localChannelUpdate = true;
+
+    await CHANNEL_DOC.set({
+      currentPos,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    setTimeout(() => {
+      localChannelUpdate = false;
+    }, 700);
+
+  } catch (error) {
+    console.warn('Erro ao atualizar canal:', error);
+    localChannelUpdate = false;
+  }
+}
+
+function ouvirCanalTV() {
+  if (unsubscribeChannel) unsubscribeChannel();
+
+  unsubscribeChannel = CHANNEL_DOC.onSnapshot(snapshot => {
+    if (localChannelUpdate) return;
+    if (!snapshot.exists) return;
+    if (!order.length) return;
+
+    const data = snapshot.data();
+
+    if (typeof data.currentPos !== 'number') return;
+
+    const novaPos = data.currentPos % order.length;
+
+    if (novaPos !== currentPos) {
+      currentPos = novaPos;
+      playCurrent();
+    }
+
+  }, error => {
+    console.warn('Erro canal TV:', error);
   });
 }
 
@@ -557,7 +613,6 @@ function readTable() {
 
   tbody.querySelectorAll('tr').forEach(row => {
     const inputs = row.querySelectorAll('input, select');
-
     const url = inputs[0].value.trim();
 
     if (!url) return;
@@ -574,8 +629,47 @@ function readTable() {
   return newVideos;
 }
 
+// ==================== WATCHDOG ====================
+function startWatchdog() {
+  stopWatchdog();
+
+  lastVideoTime = player.currentTime || 0;
+  stalledSeconds = 0;
+
+  watchdogTimer = setInterval(() => {
+    if (frame.style.display === 'block') return;
+    if (!isPlaying) return;
+
+    const current = player.currentTime || 0;
+
+    if (!player.paused && Math.abs(current - lastVideoTime) < 0.2) {
+      stalledSeconds++;
+    } else {
+      stalledSeconds = 0;
+    }
+
+    lastVideoTime = current;
+
+    if (stalledSeconds >= 5) {
+      setInfo('Vídeo parado há mais de 5s — próximo...', true);
+      nextVideo();
+    }
+  }, 1000);
+}
+
+function stopWatchdog() {
+  if (watchdogTimer) {
+    clearInterval(watchdogTimer);
+    watchdogTimer = null;
+  }
+
+  stalledSeconds = 0;
+}
+
 // ==================== PLAYER ====================
 function clearPlayback() {
+  stopWatchdog();
+
   if (timeUpdateHandler) {
     player.removeEventListener('timeupdate', timeUpdateHandler);
     timeUpdateHandler = null;
@@ -612,7 +706,7 @@ function buildOrder() {
     }
   }
 
-  currentPos = 0;
+  currentPos = Math.min(currentPos, Math.max(order.length - 1, 0));
   isShuffled = shuffleBtn.checked;
 }
 
@@ -705,14 +799,16 @@ function loadHLSVideo(url) {
 }
 
 async function safePlayVideo() {
-  player.muted = true;
+  player.muted = false;
+  player.volume = 1;
   player.autoplay = true;
   player.playsInline = true;
 
   try {
     await player.play();
   } catch (error) {
-    console.warn('Autoplay bloqueado:', error);
+    console.warn('Autoplay com som bloqueado:', error);
+    setInfo('Autoplay com som bloqueado. Clique em ▶ Iniciar.', true);
   }
 }
 
@@ -746,7 +842,7 @@ async function playCurrent() {
 
       const params = new URLSearchParams({
         autoplay: '1',
-        mute: '1',
+        mute: '0',
         rel: '0',
         playsinline: '1',
         enablejsapi: '1'
@@ -819,6 +915,8 @@ async function playCurrent() {
       isPlaying = true;
       playBtn.textContent = '⏸ Pausar';
 
+      startWatchdog();
+
       setInfo(`🎥 HLS: ${video.note || video.url}`);
 
     } else {
@@ -846,6 +944,8 @@ async function playCurrent() {
       isPlaying = true;
       playBtn.textContent = '⏸ Pausar';
 
+      startWatchdog();
+
       setInfo(`🎬 MP4: ${video.note || video.url}`);
     }
 
@@ -853,24 +953,30 @@ async function playCurrent() {
     isPlaying = false;
     playBtn.textContent = '▶ Iniciar';
 
-    setInfo(`Erro [${resolvedType}]: ${error.message}`, true);
+    setInfo(`Erro [${resolvedType}]: ${error.message} — próximo...`, true);
 
-    setTimeout(nextVideo, 2000);
+    setTimeout(nextVideo, 1000);
   }
 }
 
 // ==================== CONTROLOS ====================
-function nextVideo() {
+async function nextVideo() {
   if (!videos.length || !order.length) return;
 
   currentPos = (currentPos + 1) % order.length;
+
+  await atualizarCanalTV();
+
   playCurrent();
 }
 
-function prevVideo() {
+async function prevVideo() {
   if (!videos.length || !order.length) return;
 
   currentPos = (currentPos - 1 + order.length) % order.length;
+
+  await atualizarCanalTV();
+
   playCurrent();
 }
 
@@ -886,6 +992,10 @@ async function saveAndStart() {
   if (!ok) return;
 
   buildOrder();
+  currentPos = 0;
+
+  await atualizarCanalTV();
+
   playCurrent();
 }
 
@@ -908,12 +1018,16 @@ function togglePlayPause() {
     isPlaying = true;
     playBtn.textContent = '⏸ Pausar';
 
+    startWatchdog();
+
     setInfo('▶️ Reproduzindo');
   } else {
     player.pause();
 
     isPlaying = false;
     playBtn.textContent = '▶ Iniciar';
+
+    stopWatchdog();
 
     setInfo('⏸️ Pausado');
   }
@@ -924,8 +1038,10 @@ playBtn.addEventListener('click', togglePlayPause);
 nextBtn.addEventListener('click', nextVideo);
 prevBtn.addEventListener('click', prevVideo);
 
-shuffleBtn.addEventListener('change', () => {
+shuffleBtn.addEventListener('change', async () => {
   buildOrder();
+  currentPos = 0;
+  await atualizarCanalTV();
   setInfo(shuffleBtn.checked ? '🔀 Shuffle ativado' : '📋 Ordem normal');
 });
 
@@ -937,14 +1053,50 @@ player.addEventListener('ended', nextVideo);
 player.addEventListener('error', () => {
   const errMsg = player.error?.message || 'erro desconhecido';
 
-  setInfo(`Erro vídeo: ${errMsg}`, true);
+  setInfo(`Erro vídeo: ${errMsg} — próximo...`, true);
 
-  setTimeout(nextVideo, 2000);
+  setTimeout(nextVideo, 1000);
+});
+
+player.addEventListener('stalled', () => {
+  setInfo('Vídeo travado — próximo...', true);
+  setTimeout(nextVideo, 1000);
+});
+
+player.addEventListener('waiting', () => {
+  setTimeout(() => {
+    if (!player.paused && player.readyState < 3) {
+      setInfo('Vídeo em espera há demasiado tempo — próximo...', true);
+      nextVideo();
+    }
+  }, 5000);
 });
 
 // ==================== INICIALIZAÇÃO ====================
-carregarPlaylistFirebase().then(() => {
+carregarPlaylistFirebase().then(async () => {
   ouvirPlaylistFirebase();
+  ouvirCanalTV();
+
+  setTimeout(async () => {
+    videos = readTable();
+    buildOrder();
+
+    try {
+      const channelDoc = await CHANNEL_DOC.get();
+
+      if (channelDoc.exists && typeof channelDoc.data().currentPos === 'number' && order.length) {
+        currentPos = channelDoc.data().currentPos % order.length;
+      } else {
+        currentPos = 0;
+        await atualizarCanalTV();
+      }
+
+    } catch (error) {
+      currentPos = 0;
+    }
+
+    playCurrent();
+  }, 1000);
 });
 </script>
 
