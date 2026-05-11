@@ -34,7 +34,6 @@ h2 {
   background: #2e2e2e;
   padding: 4px 12px;
   border-radius: 20px;
-  font-weight: normal;
 }
 
 .player-container {
@@ -72,15 +71,12 @@ h2 {
   right: 18px;
   z-index: 9999;
   background: rgba(0,0,0,0.45);
-  backdrop-filter: blur(6px);
-  color: rgba(255,255,255,0.92);
+  color: white;
   padding: 8px 14px;
   border-radius: 12px;
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 1px;
-  border: 1px solid rgba(255,255,255,0.15);
-  text-shadow: 0 0 10px rgba(0,0,0,0.8);
   pointer-events: none;
   user-select: none;
 }
@@ -266,7 +262,7 @@ tr.active td { border-color: #3b82f6; }
 
 <div class="warn">
   <strong>📌 Notas:</strong>
-  Esta página não tem vídeos no HTML. A playlist é carregada apenas do Firebase Firestore.
+  A playlist vem apenas do Firebase. Se apagares um vídeo e salvares, ele não volta.
 </div>
 
 <div class="playlist-header">
@@ -371,7 +367,7 @@ async function carregarPlaylistFirebase() {
       renderPlaylist([]);
       videos = [];
       buildOrder();
-      setInfo('📋 Nenhuma playlist encontrada no Firebase. Adicione uma linha e salve.');
+      setInfo('📋 Nenhuma playlist encontrada. Adiciona vídeos e salva.');
       return;
     }
 
@@ -380,7 +376,7 @@ async function carregarPlaylistFirebase() {
     videos = readTable();
     buildOrder();
 
-    setInfo(`✅ Playlist carregada do Firebase: ${videos.length} vídeos.`);
+    setInfo(`✅ Playlist carregada: ${videos.length} vídeos.`);
 
   } catch (error) {
     console.error(error);
@@ -704,22 +700,13 @@ async function safePlayVideo() {
   try {
     await player.play();
   } catch (error) {
-    console.warn('Autoplay bloqueado, segunda tentativa...', error);
-
-    setTimeout(async () => {
-      try {
-        player.muted = true;
-        await player.play();
-      } catch (e) {
-        console.warn('Segunda tentativa falhou:', e);
-      }
-    }, 500);
+    console.warn('Autoplay bloqueado:', error);
   }
 }
 
 async function playCurrent() {
   if (!videos.length) {
-    setInfo('Playlist vazia. Adicione vídeos e salve no Firebase.', true);
+    setInfo('Playlist vazia. Adiciona vídeos e salva.', true);
     return;
   }
 
@@ -734,8 +721,6 @@ async function playCurrent() {
 
   clearPlayback();
   highlightCurrentRow();
-
-  setInfo(`Carregando (${currentPos + 1}/${order.length}): ${video.note || video.url}`);
 
   try {
     if (resolvedType === 'youtube') {
@@ -865,7 +850,9 @@ async function saveAndStart() {
 
 function togglePlayPause() {
   if (!videos.length) {
-    saveAndStart();
+    videos = readTable();
+    buildOrder();
+    playCurrent();
     return;
   }
 
