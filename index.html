@@ -21,12 +21,7 @@ body {
   color: #e5e5e5;
 }
 
-h2 {
-  color: #fff;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
+h2 { color: #fff; display: flex; align-items: center; gap: 12px; }
 
 .badge {
   font-size: 12px;
@@ -49,8 +44,7 @@ h2 {
   background: #000;
 }
 
-#player,
-#frame {
+#player, #frame {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -142,10 +136,7 @@ label.toggle {
   gap: 12px;
 }
 
-.hint {
-  font-size: 12px;
-  color: #888;
-}
+.hint { font-size: 12px; color: #888; }
 
 .table-wrapper {
   max-height: 450px;
@@ -173,8 +164,7 @@ th {
   z-index: 10;
 }
 
-td input,
-td select {
+td input, td select {
   width: 100%;
   padding: 6px 8px;
   border: 1px solid #3a3a3a;
@@ -184,11 +174,7 @@ td select {
   font-size: 12px;
 }
 
-td.url input {
-  font-family: monospace;
-  font-size: 11px;
-}
-
+td.url input { font-family: monospace; font-size: 11px; }
 td.num { width: 85px; }
 td.type { width: 100px; }
 td.actions { width: 55px; text-align: center; }
@@ -212,11 +198,7 @@ tr.active td { border-color: #3b82f6; }
   margin-right: 8px;
 }
 
-.status-playing {
-  background: #22c55e;
-  box-shadow: 0 0 5px #22c55e;
-}
-
+.status-playing { background: #22c55e; box-shadow: 0 0 5px #22c55e; }
 .status-paused { background: #6b7280; }
 </style>
 </head>
@@ -261,7 +243,7 @@ tr.active td { border-color: #3b82f6; }
 
 <div class="warn">
   <strong>📌 Notas:</strong>
-  Instagram pode não fazer autoplay. Se não tocar, passa automaticamente ao próximo.
+  Instagram/Reels não permite autoplay fiável. O player carrega o embed e passa ao próximo automaticamente.
 </div>
 
 <div class="playlist-header">
@@ -273,7 +255,7 @@ tr.active td { border-color: #3b82f6; }
 </div>
 
 <p class="hint">
-  💡 Para Instagram/Reels, recomenda-se colocar Fim = 10 ou 15 segundos.
+  💡 Para Instagram/Reels, recomenda-se usar Fim = 10 ou 15 segundos.
 </p>
 
 <div class="table-wrapper">
@@ -869,12 +851,12 @@ async function playCurrent() {
 
       setInfo(`📸 Instagram carregado: ${video.note || instaPath}`);
 
-      let duration = 20;
+      let duration = 10;
       if (video.end && video.start) duration = video.end - video.start;
       else if (video.end) duration = video.end;
 
       frameTimeout = setTimeout(() => {
-        setInfo('📸 Instagram sem autoplay — próximo...');
+        setInfo('📸 Instagram não permite autoplay automático — próximo...');
         nextVideo();
       }, Math.min(duration * 1000, 60000));
 
