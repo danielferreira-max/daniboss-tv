@@ -10,7 +10,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 
 <style>
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 body {
   font-family: system-ui, -apple-system, sans-serif;
@@ -21,7 +23,12 @@ body {
   color: #e5e5e5;
 }
 
-h2 { color: #fff; display: flex; align-items: center; gap: 12px; }
+h2 {
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 
 .badge {
   font-size: 12px;
@@ -44,25 +51,29 @@ h2 { color: #fff; display: flex; align-items: center; gap: 12px; }
   background: #000;
 }
 
-#player, #frame {
+#player,
+#frame {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
 }
 
-#player { object-fit: contain; }
+#player {
+  object-fit: contain;
+}
 
 #frame {
   border: 0;
   display: none;
 }
 
+/* WATERMARK */
 .watermark {
   position: absolute;
   top: 14px;
   right: 18px;
-  z-index: 9999;
+  z-index: 2147483647;
   background: rgba(0,0,0,0.45);
   color: white;
   padding: 8px 14px;
@@ -71,9 +82,27 @@ h2 { color: #fff; display: flex; align-items: center; gap: 12px; }
   font-weight: 700;
   letter-spacing: 1px;
   pointer-events: none;
+  transition: all 0.2s ease;
 }
 
-.watermark span { color: #3b82f6; }
+.watermark span {
+  color: #3b82f6;
+}
+
+/* FULLSCREEN */
+:fullscreen .watermark,
+:-webkit-full-screen .watermark,
+:-moz-full-screen .watermark,
+:-ms-fullscreen .watermark {
+  position: fixed;
+  top: 20px;
+  right: 24px;
+  z-index: 2147483647;
+  font-size: 18px;
+  padding: 10px 18px;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(4px);
+}
 
 #info {
   margin: 12px 0;
@@ -103,8 +132,15 @@ button {
   font-size: 14px;
 }
 
-button.primary { background: #3b82f6; color: white; }
-button.secondary { background: #374151; color: #e5e5e5; }
+button.primary {
+  background: #3b82f6;
+  color: white;
+}
+
+button.secondary {
+  background: #374151;
+  color: #e5e5e5;
+}
 
 label.toggle {
   display: inline-flex;
@@ -136,7 +172,10 @@ label.toggle {
   gap: 12px;
 }
 
-.hint { font-size: 12px; color: #888; }
+.hint {
+  font-size: 12px;
+  color: #888;
+}
 
 .table-wrapper {
   max-height: 450px;
@@ -152,7 +191,8 @@ table {
   background: #111;
 }
 
-th, td {
+th,
+td {
   border: 1px solid #2a2a2a;
   padding: 8px 6px;
 }
@@ -164,7 +204,8 @@ th {
   z-index: 10;
 }
 
-td input, td select {
+td input,
+td select {
   width: 100%;
   padding: 6px 8px;
   border: 1px solid #3a3a3a;
@@ -174,10 +215,23 @@ td input, td select {
   font-size: 12px;
 }
 
-td.url input { font-family: monospace; font-size: 11px; }
-td.num { width: 85px; }
-td.type { width: 100px; }
-td.actions { width: 55px; text-align: center; }
+td.url input {
+  font-family: monospace;
+  font-size: 11px;
+}
+
+td.num {
+  width: 85px;
+}
+
+td.type {
+  width: 100px;
+}
+
+td.actions {
+  width: 55px;
+  text-align: center;
+}
 
 .row-btn {
   background: #dc2626;
@@ -187,8 +241,13 @@ td.actions { width: 55px; text-align: center; }
   color: white;
 }
 
-tr.active { background: #1e3a5f; }
-tr.active td { border-color: #3b82f6; }
+tr.active {
+  background: #1e3a5f;
+}
+
+tr.active td {
+  border-color: #3b82f6;
+}
 
 .status-dot {
   display: inline-block;
@@ -198,8 +257,14 @@ tr.active td { border-color: #3b82f6; }
   margin-right: 8px;
 }
 
-.status-playing { background: #22c55e; box-shadow: 0 0 5px #22c55e; }
-.status-paused { background: #6b7280; }
+.status-playing {
+  background: #22c55e;
+  box-shadow: 0 0 5px #22c55e;
+}
+
+.status-paused {
+  background: #6b7280;
+}
 </style>
 </head>
 
@@ -212,7 +277,14 @@ tr.active td { border-color: #3b82f6; }
 
 <div class="player-container">
   <div id="stage">
-    <video id="player" controls playsinline autoplay muted></video>
+
+    <video
+      id="player"
+      controls
+      playsinline
+      autoplay
+      muted>
+    </video>
 
     <iframe
       id="frame"
@@ -223,6 +295,7 @@ tr.active td { border-color: #3b82f6; }
     <div class="watermark">
       DANIBOSS <span>TV</span>
     </div>
+
   </div>
 </div>
 
@@ -235,19 +308,23 @@ tr.active td { border-color: #3b82f6; }
   <button id="playBtn" class="primary">▶ Iniciar</button>
   <button id="prevBtn" class="secondary">⏮ Anterior</button>
   <button id="nextBtn" class="secondary">⏭ Próximo</button>
+  <button id="fullscreenBtn" class="secondary">⛶ Fullscreen</button>
 
   <label class="toggle">
-    <input type="checkbox" id="shuffleBtn" checked> 🔀 Shuffle
+    <input type="checkbox" id="shuffleBtn" checked>
+    🔀 Shuffle
   </label>
 </div>
 
 <div class="warn">
   <strong>📌 Notas:</strong>
-  Instagram/Reels não permite autoplay fiável. O player carrega o embed e passa ao próximo automaticamente.
+  Instagram/Reels não permite autoplay real.
+  O player avança automaticamente para o próximo vídeo.
 </div>
 
 <div class="playlist-header">
   <h3>📋 Playlist editável</h3>
+
   <div>
     <button id="addRowBtn" class="secondary">➕ Nova Linha</button>
     <button id="saveBtn" class="primary">💾 Salvar & Reiniciar</button>
@@ -255,7 +332,7 @@ tr.active td { border-color: #3b82f6; }
 </div>
 
 <p class="hint">
-  💡 Para Instagram/Reels, recomenda-se usar Fim = 10 ou 15 segundos.
+  💡 Para Instagram/Reels usa Fim = 10 ou 15 segundos.
 </p>
 
 <div class="table-wrapper">
@@ -271,20 +348,21 @@ tr.active td { border-color: #3b82f6; }
         <th style="width:50px"></th>
       </tr>
     </thead>
+
     <tbody></tbody>
   </table>
 </div>
 
 <script>
+/* ================= FIREBASE ================= */
+
 const firebaseConfig = {
   apiKey: "AIzaSyANZgI5dhvLAvnKd3DgXMnDqI9CF2rBZEA",
   authDomain: "daniboss-tv.firebaseapp.com",
-  databaseURL: "https://daniboss-tv-default-rtdb.firebaseio.com",
   projectId: "daniboss-tv",
   storageBucket: "daniboss-tv.firebasestorage.app",
   messagingSenderId: "541103479451",
-  appId: "1:541103479451:web:b20c574257045f8186843e",
-  measurementId: "G-SNK8LKYZ4B"
+  appId: "1:541103479451:web:b20c574257045f8186843e"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -292,238 +370,172 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 
-const PLAYLIST_DOC = db.collection('playlists').doc('principal');
-const CHANNEL_DOC = db.collection('channel').doc('daniboss-tv');
+const PLAYLIST_DOC =
+  db.collection('playlists').doc('principal');
+
+/* ================= DOM ================= */
 
 const player = document.getElementById('player');
 const frame = document.getElementById('frame');
+
 const playBtn = document.getElementById('playBtn');
 const prevBtn = document.getElementById('prevBtn');
 const nextBtn = document.getElementById('nextBtn');
-const shuffleBtn = document.getElementById('shuffleBtn');
-const infoDiv = document.getElementById('info');
-const tbody = document.querySelector('#playlistTable tbody');
-const addRowBtn = document.getElementById('addRowBtn');
 const saveBtn = document.getElementById('saveBtn');
+const addRowBtn = document.getElementById('addRowBtn');
+
+const shuffleBtn =
+  document.getElementById('shuffleBtn');
+
+const fullscreenBtn =
+  document.getElementById('fullscreenBtn');
+
+const tbody =
+  document.querySelector('#playlistTable tbody');
+
+const infoDiv =
+  document.getElementById('info');
+
+/* ================= ESTADO ================= */
 
 let videos = [];
 let order = [];
 let currentPos = 0;
 
 let activeHls = null;
-let timeUpdateHandler = null;
 let frameTimeout = null;
+let watchdogTimer = null;
 
 let isPlaying = false;
-let isShuffled = true;
-let isSaving = false;
 
-let unsubscribeFirebase = null;
-let unsubscribeChannel = null;
+/* ================= INFO ================= */
 
-let watchdogTimer = null;
-let lastVideoTime = 0;
-let stalledSeconds = 0;
+function setInfo(msg, isError = false) {
 
-let localChannelUpdate = false;
-let isChangingVideo = false;
-
-function setInfo(message, isError = false) {
   infoDiv.innerHTML = `
-    <span class="status-dot ${isPlaying ? 'status-playing' : 'status-paused'}"></span>
-    ${isError ? '⚠️ ' : ''}${message}
+    <span class="status-dot ${
+      isPlaying
+        ? 'status-playing'
+        : 'status-paused'
+    }"></span>
+
+    ${isError ? '⚠️ ' : ''}${msg}
   `;
 
-  infoDiv.style.borderLeftColor = isError ? '#ef4444' : '#3b82f6';
-  console.log(message);
+  infoDiv.style.borderLeftColor =
+    isError
+      ? '#ef4444'
+      : '#3b82f6';
 }
 
+/* ================= AUTH ================= */
+
 async function iniciarAuth() {
+
   if (!auth.currentUser) {
     await auth.signInAnonymously();
   }
 }
 
-async function carregarPlaylistFirebase() {
+/* ================= PLAYLIST ================= */
+
+async function carregarPlaylist() {
+
   try {
-    setInfo('☁️ A carregar playlist do Firebase...');
 
     await iniciarAuth();
 
-    const doc = await PLAYLIST_DOC.get();
+    const doc =
+      await PLAYLIST_DOC.get();
 
-    if (!doc.exists || !Array.isArray(doc.data().videos)) {
+    if (!doc.exists) {
       renderPlaylist([]);
-      videos = [];
-      buildOrder();
-      setInfo('📋 Nenhuma playlist encontrada. Adiciona vídeos e salva.');
       return;
     }
 
-    renderPlaylist(doc.data().videos);
+    const data = doc.data();
+
+    renderPlaylist(data.videos || []);
 
     videos = readTable();
+
     buildOrder();
 
-    setInfo(`✅ Playlist carregada: ${videos.length} vídeos.`);
+    setInfo(
+      `✅ Playlist carregada: ${videos.length} vídeos`
+    );
 
-  } catch (error) {
-    console.error(error);
-    renderPlaylist([]);
-    videos = [];
-    buildOrder();
-    setInfo(`Erro Firebase: ${error.message}`, true);
+  } catch (e) {
+
+    console.error(e);
+
+    setInfo(
+      `Erro Firebase: ${e.message}`,
+      true
+    );
   }
 }
 
-async function salvarPlaylistFirebase() {
+async function salvarPlaylist() {
+
   try {
+
     await iniciarAuth();
 
     const lista = readTable();
 
     await PLAYLIST_DOC.set({
       videos: lista,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      updatedAt:
+        firebase.firestore.FieldValue.serverTimestamp()
     });
 
-    const confirmacao = await PLAYLIST_DOC.get();
+    setInfo(
+      `💾 Playlist salva: ${lista.length} vídeos`
+    );
 
-    if (!confirmacao.exists) {
-      throw new Error('Documento não foi criado no Firestore.');
-    }
+    videos = lista;
 
-    const videosSalvos = confirmacao.data().videos || [];
+    buildOrder();
 
-    setInfo(`💾 Playlist salva e confirmada: ${videosSalvos.length} vídeos.`);
-    return true;
+  } catch (e) {
 
-  } catch (error) {
-    console.error(error);
-    setInfo(`Erro ao salvar no Firebase: ${error.message}`, true);
-    return false;
+    console.error(e);
+
+    setInfo(
+      `Erro ao salvar: ${e.message}`,
+      true
+    );
   }
 }
 
-function ouvirPlaylistFirebase() {
-  if (unsubscribeFirebase) unsubscribeFirebase();
+function ouvirPlaylist() {
 
-  unsubscribeFirebase = PLAYLIST_DOC.onSnapshot(snapshot => {
-    if (isSaving) return;
+  PLAYLIST_DOC.onSnapshot(snapshot => {
+
     if (!snapshot.exists) return;
 
     const data = snapshot.data();
+
     if (!Array.isArray(data.videos)) return;
 
     renderPlaylist(data.videos);
 
     videos = readTable();
+
     buildOrder();
 
-    setInfo(`🔄 Playlist sincronizada: ${videos.length} vídeos.`);
-
-  }, error => {
-    console.error(error);
-    setInfo(`Erro ao sincronizar Firebase: ${error.message}`, true);
   });
 }
 
-async function atualizarCanalTV() {
-  if (!order.length) return;
-
-  try {
-    localChannelUpdate = true;
-
-    await CHANNEL_DOC.set({
-      currentPos,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-
-    setTimeout(() => {
-      localChannelUpdate = false;
-    }, 700);
-
-  } catch (error) {
-    console.warn('Erro ao atualizar canal:', error);
-    localChannelUpdate = false;
-  }
-}
-
-function ouvirCanalTV() {
-  if (unsubscribeChannel) unsubscribeChannel();
-
-  unsubscribeChannel = CHANNEL_DOC.onSnapshot(snapshot => {
-    if (localChannelUpdate) return;
-    if (!snapshot.exists) return;
-    if (!order.length) return;
-
-    const data = snapshot.data();
-
-    if (typeof data.currentPos !== 'number') return;
-
-    const novaPos = data.currentPos % order.length;
-
-    if (novaPos !== currentPos) {
-      currentPos = novaPos;
-      playCurrent();
-    }
-
-  }, error => {
-    console.warn('Erro canal TV:', error);
-  });
-}
-
-function detectType(url) {
-  if (!url) return 'mp4';
-
-  const u = url.toLowerCase();
-
-  if (u.includes('youtube.com') || u.includes('youtu.be')) return 'youtube';
-  if (u.includes('instagram.com')) return 'instagram';
-  if (u.includes('.m3u8')) return 'hls';
-
-  return 'mp4';
-}
-
-function getYouTubeId(url) {
-  const patterns = [
-    /youtube\.com\/watch\?.*v=([A-Za-z0-9_-]{11})/,
-    /youtu\.be\/([A-Za-z0-9_-]{11})/,
-    /youtube\.com\/shorts\/([A-Za-z0-9_-]{11})/,
-    /youtube\.com\/embed\/([A-Za-z0-9_-]{11})/
-  ];
-
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match) return match[1];
-  }
-
-  return null;
-}
-
-function getInstagramPath(url) {
-  const match = url.match(/instagram\.com\/(reel|reels|p)\/([^\/?#]+)/i);
-  if (!match) return null;
-
-  const type = match[1].toLowerCase() === 'reels'
-    ? 'reel'
-    : match[1].toLowerCase();
-
-  return `${type}/${match[2]}`;
-}
-
-function escAttr(str) {
-  return String(str ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
+/* ================= TABLE ================= */
 
 function renderPlaylist(lista) {
+
   tbody.innerHTML = '';
 
   lista.forEach(v => {
+
     addRow([
       v.url || '',
       v.type || 'auto',
@@ -534,121 +546,160 @@ function renderPlaylist(lista) {
   });
 }
 
-function renderRow(idx, url, type, start, end, note) {
-  const types = ['auto', 'youtube', 'instagram', 'hls', 'mp4'];
-
-  const typeOptions = types
-    .map(t => `<option value="${t}"${t === type ? ' selected' : ''}>${t}</option>`)
-    .join('');
-
-  return `
-    <td>${idx}</td>
-    <td class="url"><input type="text" value="${escAttr(url)}" placeholder="https://..."></td>
-    <td class="type"><select>${typeOptions}</select></td>
-    <td class="num"><input type="number" step="1" value="${escAttr(start)}" placeholder="seg"></td>
-    <td class="num"><input type="number" step="1" value="${escAttr(end)}" placeholder="seg"></td>
-    <td><input type="text" value="${escAttr(note)}" placeholder="Nota"></td>
-    <td class="actions"><button class="row-btn" title="Remover">✕</button></td>
-  `;
-}
-
 function addRow(data = ['', 'auto', '', '', '']) {
-  const tr = document.createElement('tr');
 
-  tr.innerHTML = renderRow(
-    tbody.children.length + 1,
-    data[0],
-    data[1],
-    data[2],
-    data[3],
-    data[4]
-  );
+  const tr =
+    document.createElement('tr');
 
-  tr.querySelector('.row-btn').addEventListener('click', () => {
-    tr.remove();
-    reindexTable();
-  });
+  tr.innerHTML = `
+    <td>${tbody.children.length + 1}</td>
+
+    <td class="url">
+      <input type="text" value="${data[0]}">
+    </td>
+
+    <td class="type">
+      <select>
+        <option value="auto">auto</option>
+        <option value="youtube">youtube</option>
+        <option value="instagram">instagram</option>
+        <option value="hls">hls</option>
+        <option value="mp4">mp4</option>
+      </select>
+    </td>
+
+    <td class="num">
+      <input type="number" value="${data[2]}">
+    </td>
+
+    <td class="num">
+      <input type="number" value="${data[3]}">
+    </td>
+
+    <td>
+      <input type="text" value="${data[4]}">
+    </td>
+
+    <td class="actions">
+      <button class="row-btn">✕</button>
+    </td>
+  `;
+
+  tr.querySelector('select').value =
+    data[1] || 'auto';
+
+  tr.querySelector('.row-btn')
+    .addEventListener('click', () => {
+
+      tr.remove();
+
+      reindexTable();
+    });
 
   tbody.appendChild(tr);
 }
 
 function reindexTable() {
-  tbody.querySelectorAll('tr').forEach((row, i) => {
-    row.cells[0].textContent = i + 1;
-  });
+
+  tbody.querySelectorAll('tr')
+    .forEach((row, i) => {
+
+      row.cells[0].textContent = i + 1;
+    });
 }
 
 function readTable() {
-  const newVideos = [];
 
-  tbody.querySelectorAll('tr').forEach(row => {
-    const inputs = row.querySelectorAll('input, select');
-    const url = inputs[0].value.trim();
+  const arr = [];
 
-    if (!url) return;
+  tbody.querySelectorAll('tr')
+    .forEach(row => {
 
-    newVideos.push({
-      url,
-      type: inputs[1].value,
-      start: inputs[2].value === '' ? null : Number(inputs[2].value),
-      end: inputs[3].value === '' ? null : Number(inputs[3].value),
-      note: inputs[4].value.trim()
+      const inputs =
+        row.querySelectorAll('input, select');
+
+      const url =
+        inputs[0].value.trim();
+
+      if (!url) return;
+
+      arr.push({
+        url,
+        type: inputs[1].value,
+        start:
+          inputs[2].value === ''
+            ? null
+            : Number(inputs[2].value),
+        end:
+          inputs[3].value === ''
+            ? null
+            : Number(inputs[3].value),
+        note:
+          inputs[4].value.trim()
+      });
     });
-  });
 
-  return newVideos;
+  return arr;
 }
 
-function startWatchdog() {
-  stopWatchdog();
+/* ================= PLAYER ================= */
 
-  lastVideoTime = player.currentTime || 0;
-  stalledSeconds = 0;
+function detectType(url) {
 
-  watchdogTimer = setInterval(() => {
-    if (frame.style.display === 'block') return;
-    if (!isPlaying) return;
+  const u = url.toLowerCase();
 
-    const current = player.currentTime || 0;
+  if (
+    u.includes('youtube.com') ||
+    u.includes('youtu.be')
+  ) return 'youtube';
 
-    const parado =
-      player.paused ||
-      player.readyState < 3 ||
-      Math.abs(current - lastVideoTime) < 0.15;
+  if (
+    u.includes('instagram.com')
+  ) return 'instagram';
 
-    if (parado) {
-      stalledSeconds++;
-    } else {
-      stalledSeconds = 0;
-    }
+  if (
+    u.includes('.m3u8')
+  ) return 'hls';
 
-    lastVideoTime = current;
-
-    if (stalledSeconds >= 2) {
-      setInfo('Vídeo parado — próximo...', true);
-      nextVideo();
-    }
-  }, 1000);
+  return 'mp4';
 }
 
-function stopWatchdog() {
-  if (watchdogTimer) {
-    clearInterval(watchdogTimer);
-    watchdogTimer = null;
+function getYouTubeId(url) {
+
+  const patterns = [
+
+    /youtube\.com\/watch\?.*v=([A-Za-z0-9_-]{11})/,
+
+    /youtu\.be\/([A-Za-z0-9_-]{11})/,
+
+    /youtube\.com\/shorts\/([A-Za-z0-9_-]{11})/
+  ];
+
+  for (const p of patterns) {
+
+    const m = url.match(p);
+
+    if (m) return m[1];
   }
 
-  stalledSeconds = 0;
+  return null;
+}
+
+function getInstagramPath(url) {
+
+  const m =
+    url.match(
+      /instagram\.com\/(reel|reels|p)\/([^\/?#]+)/i
+    );
+
+  if (!m) return null;
+
+  return `reel/${m[2]}`;
 }
 
 function clearPlayback() {
+
   stopWatchdog();
-
-  isPlaying = false;
-
-  if (timeUpdateHandler) {
-    player.removeEventListener('timeupdate', timeUpdateHandler);
-    timeUpdateHandler = null;
-  }
 
   if (frameTimeout) {
     clearTimeout(frameTimeout);
@@ -656,400 +707,513 @@ function clearPlayback() {
   }
 
   if (activeHls) {
-    try { activeHls.destroy(); } catch (e) {}
+
+    try {
+      activeHls.destroy();
+    } catch(e){}
+
     activeHls = null;
   }
 
   try {
+
     player.pause();
+
     player.removeAttribute('src');
+
     player.load();
-  } catch (e) {}
+
+  } catch(e){}
 
   frame.src = 'about:blank';
+
   frame.style.display = 'none';
+
   player.style.display = 'block';
 }
 
 function buildOrder() {
-  order = videos.map((_, i) => i);
+
+  order =
+    videos.map((_, i) => i);
 
   if (shuffleBtn.checked) {
-    for (let i = order.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [order[i], order[j]] = [order[j], order[i]];
+
+    for (
+      let i = order.length - 1;
+      i > 0;
+      i--
+    ) {
+
+      const j =
+        Math.floor(
+          Math.random() * (i + 1)
+        );
+
+      [order[i], order[j]] =
+        [order[j], order[i]];
     }
   }
 
-  currentPos = Math.min(currentPos, Math.max(order.length - 1, 0));
-  isShuffled = shuffleBtn.checked;
+  currentPos = 0;
 }
 
 function highlightCurrentRow() {
-  document.querySelectorAll('#playlistTable tbody tr').forEach(tr => {
+
+  document.querySelectorAll(
+    '#playlistTable tbody tr'
+  ).forEach(tr => {
+
     tr.classList.remove('active');
   });
 
-  if (!order.length) return;
+  const rows =
+    document.querySelectorAll(
+      '#playlistTable tbody tr'
+    );
 
-  const currentVideoIndex = order[currentPos];
-  const rows = document.querySelectorAll('#playlistTable tbody tr');
+  if (rows[order[currentPos]]) {
 
-  if (rows[currentVideoIndex]) {
-    rows[currentVideoIndex].classList.add('active');
+    rows[order[currentPos]]
+      .classList.add('active');
   }
 }
 
-function setupTimeCuts(video) {
-  const start = video.start;
-  const end = video.end;
+function stopWatchdog() {
 
-  if (start !== null && start > 0 && !isNaN(start)) {
-    player.currentTime = start;
-  }
+  if (watchdogTimer) {
 
-  if (end !== null && end > 0 && !isNaN(end)) {
-    timeUpdateHandler = () => {
-      if (player.currentTime >= end) {
-        player.removeEventListener('timeupdate', timeUpdateHandler);
-        timeUpdateHandler = null;
-        nextVideo();
-      }
-    };
+    clearInterval(watchdogTimer);
 
-    player.addEventListener('timeupdate', timeUpdateHandler);
+    watchdogTimer = null;
   }
 }
 
-function loadHLSVideo(url) {
-  return new Promise((resolve, reject) => {
-    if (!window.Hls) {
-      reject(new Error('HLS.js não carregado'));
+function startWatchdog() {
+
+  stopWatchdog();
+
+  let last =
+    player.currentTime;
+
+  let stalled = 0;
+
+  watchdogTimer = setInterval(() => {
+
+    if (frame.style.display === 'block')
       return;
+
+    if (!isPlaying)
+      return;
+
+    const current =
+      player.currentTime;
+
+    if (
+      Math.abs(current - last) < 0.1
+    ) {
+      stalled++;
+    } else {
+      stalled = 0;
     }
 
-    if (!Hls.isSupported()) {
-      if (player.canPlayType('application/vnd.apple.mpegURL')) {
-        player.src = url;
-        player.addEventListener('loadedmetadata', resolve, { once: true });
-        player.addEventListener('error', () => reject(new Error('Erro HLS nativo')), { once: true });
-      } else {
-        reject(new Error('HLS não suportado neste navegador'));
-      }
-      return;
+    last = current;
+
+    if (stalled >= 5) {
+
+      setInfo(
+        'Vídeo parado — próximo...',
+        true
+      );
+
+      nextVideo();
     }
 
-    activeHls = new Hls({
-      debug: false,
-      enableWorker: true,
-      maxBufferLength: 30,
-      maxMaxBufferLength: 60
-    });
-
-    const timeout = setTimeout(() => {
-      reject(new Error('Timeout HLS'));
-    }, 30000);
-
-    activeHls.loadSource(url);
-    activeHls.attachMedia(player);
-
-    activeHls.on(Hls.Events.MANIFEST_PARSED, () => {
-      clearTimeout(timeout);
-      resolve();
-    });
-
-    activeHls.on(Hls.Events.ERROR, (event, data) => {
-      if (data.fatal) {
-        clearTimeout(timeout);
-        reject(new Error(`HLS error: ${data.details || data.type}`));
-      }
-    });
-  });
+  }, 1000);
 }
 
 async function safePlayVideo() {
+
   player.muted = true;
-  player.volume = 1;
   player.autoplay = true;
   player.playsInline = true;
 
   try {
+
     await player.play();
+
     isPlaying = true;
-    playBtn.textContent = '⏸ Pausar';
-  } catch (error) {
-    console.warn('Autoplay bloqueado:', error);
-    setInfo('Autoplay bloqueado. Clique em ▶ Iniciar.', true);
+
+  } catch(e) {
+
+    setInfo(
+      'Autoplay bloqueado',
+      true
+    );
   }
+}
+
+async function loadHLSVideo(url) {
+
+  return new Promise((resolve, reject) => {
+
+    if (!window.Hls) {
+
+      reject(
+        new Error('HLS.js não carregado')
+      );
+
+      return;
+    }
+
+    activeHls = new Hls();
+
+    activeHls.loadSource(url);
+
+    activeHls.attachMedia(player);
+
+    activeHls.on(
+      Hls.Events.MANIFEST_PARSED,
+      () => resolve()
+    );
+
+    activeHls.on(
+      Hls.Events.ERROR,
+      (e, data) => {
+
+        if (data.fatal) {
+
+          reject(
+            new Error(data.details)
+          );
+        }
+      }
+    );
+  });
 }
 
 async function playCurrent() {
-  if (isChangingVideo) return;
 
-  if (!videos.length) {
-    setInfo('Playlist vazia. Adiciona vídeos e salva.', true);
-    return;
+  if (!videos.length) return;
+
+  if (
+    currentPos >= order.length
+  ) {
+    currentPos = 0;
   }
 
-  isChangingVideo = true;
+  const video =
+    videos[order[currentPos]];
 
-  if (!order.length || shuffleBtn.checked !== isShuffled) {
-    buildOrder();
-  }
-
-  if (currentPos >= order.length) currentPos = 0;
-
-  const video = videos[order[currentPos]];
-  const resolvedType = video.type === 'auto'
-    ? detectType(video.url)
-    : video.type;
+  const type =
+    video.type === 'auto'
+      ? detectType(video.url)
+      : video.type;
 
   clearPlayback();
+
   highlightCurrentRow();
 
   try {
-    if (resolvedType === 'youtube') {
-      const youtubeId = getYouTubeId(video.url);
-      if (!youtubeId) throw new Error('ID YouTube inválido');
 
-      const params = new URLSearchParams({
-        autoplay: '1',
-        mute: '1',
-        rel: '0',
-        playsinline: '1',
-        enablejsapi: '1'
-      });
+    /* ================= YOUTUBE ================= */
 
-      if (video.start && video.start > 0) params.set('start', video.start);
-      if (video.end && video.end > 0) params.set('end', video.end);
+    if (type === 'youtube') {
 
-      frame.src = `https://www.youtube.com/embed/${youtubeId}?${params.toString()}`;
+      const id =
+        getYouTubeId(video.url);
+
+      if (!id)
+        throw new Error(
+          'YouTube inválido'
+        );
+
+      const params =
+        new URLSearchParams({
+
+          autoplay: '1',
+          mute: '1',
+          rel: '0',
+          playsinline: '1'
+        });
+
+      if (video.start)
+        params.set('start', video.start);
+
+      if (video.end)
+        params.set('end', video.end);
+
+      frame.src =
+        `https://www.youtube.com/embed/${id}?${params}`;
+
       frame.style.display = 'block';
+
       player.style.display = 'none';
 
       isPlaying = true;
-      playBtn.textContent = '⏸ Pausar';
 
-      setInfo(`▶️ YouTube: ${video.note || youtubeId}`);
+      setInfo(
+        `▶️ YouTube: ${video.note || id}`
+      );
 
       let duration = 300;
-      if (video.end && video.start) duration = video.end - video.start;
-      else if (video.end) duration = video.end;
 
-      frameTimeout = setTimeout(nextVideo, Math.min(duration * 1000 + 5000, 300000));
+      if (
+        video.end &&
+        video.start
+      ) {
+        duration =
+          video.end - video.start;
+      }
+      else if (video.end) {
+        duration = video.end;
+      }
 
-    } else if (resolvedType === 'instagram') {
-      const instaPath = getInstagramPath(video.url);
-      if (!instaPath) throw new Error('URL Instagram inválida');
+      frameTimeout =
+        setTimeout(
+          nextVideo,
+          duration * 1000
+        );
+    }
 
-      frame.src = `https://www.instagram.com/${instaPath}/embed`;
+    /* ================= INSTAGRAM ================= */
+
+    else if (type === 'instagram') {
+
+      const instaPath =
+        getInstagramPath(video.url);
+
+      if (!instaPath)
+        throw new Error(
+          'Instagram inválido'
+        );
+
+      frame.src =
+        `https://www.instagram.com/${instaPath}/embed`;
+
       frame.style.display = 'block';
+
       player.style.display = 'none';
 
       isPlaying = true;
-      playBtn.textContent = '⏸ Pausar';
 
-      setInfo(`📸 Instagram carregado: ${video.note || instaPath}`);
+      setInfo(
+        `📸 Instagram: ${
+          video.note || instaPath
+        }`
+      );
 
       let duration = 10;
-      if (video.end && video.start) duration = video.end - video.start;
-      else if (video.end) duration = video.end;
 
-      frameTimeout = setTimeout(() => {
-        setInfo('📸 Instagram não permite autoplay automático — próximo...');
-        nextVideo();
-      }, Math.min(duration * 1000, 60000));
+      if (
+        video.end &&
+        video.start
+      ) {
+        duration =
+          video.end - video.start;
+      }
+      else if (video.end) {
+        duration = video.end;
+      }
 
-    } else if (resolvedType === 'hls') {
+      frameTimeout =
+        setTimeout(() => {
+
+          setInfo(
+            '📸 Instagram não permite autoplay — próximo...'
+          );
+
+          nextVideo();
+
+        }, duration * 1000);
+    }
+
+    /* ================= HLS ================= */
+
+    else if (type === 'hls') {
+
       await loadHLSVideo(video.url);
-      setupTimeCuts(video);
+
       await safePlayVideo();
 
       startWatchdog();
 
-      setInfo(`🎥 HLS: ${video.note || video.url}`);
+      setInfo(
+        `🎥 HLS: ${video.note || video.url}`
+      );
+    }
 
-    } else {
+    /* ================= MP4 ================= */
+
+    else {
+
       player.src = video.url;
 
       await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error('Timeout MP4')), 15000);
 
-        player.addEventListener('loadedmetadata', () => {
-          clearTimeout(timeout);
-          resolve();
-        }, { once: true });
+        player.addEventListener(
+          'loadedmetadata',
+          resolve,
+          { once: true }
+        );
 
-        player.addEventListener('error', () => {
-          clearTimeout(timeout);
-          reject(new Error('Erro MP4'));
-        }, { once: true });
+        player.addEventListener(
+          'error',
+          () => reject(
+            new Error('Erro MP4')
+          ),
+          { once: true }
+        );
       });
 
-      setupTimeCuts(video);
       await safePlayVideo();
 
       startWatchdog();
 
-      setInfo(`🎬 MP4: ${video.note || video.url}`);
+      setInfo(
+        `🎬 MP4: ${video.note || video.url}`
+      );
     }
 
-  } catch (error) {
-    isPlaying = false;
-    playBtn.textContent = '▶ Iniciar';
+  } catch(e) {
 
-    setInfo(`Erro [${resolvedType}]: ${error.message} — próximo...`, true);
+    console.error(e);
 
-    isChangingVideo = false;
-    nextVideo();
-    return;
+    setInfo(
+      `Erro: ${e.message}`,
+      true
+    );
+
+    setTimeout(
+      nextVideo,
+      2000
+    );
   }
-
-  isChangingVideo = false;
 }
 
-async function nextVideo() {
-  if (!videos.length || !order.length) return;
+function nextVideo() {
 
-  currentPos = (currentPos + 1) % order.length;
+  if (!order.length) return;
 
-  await atualizarCanalTV();
+  currentPos =
+    (currentPos + 1)
+      % order.length;
 
   playCurrent();
 }
 
-async function prevVideo() {
-  if (!videos.length || !order.length) return;
+function prevVideo() {
 
-  currentPos = (currentPos - 1 + order.length) % order.length;
+  if (!order.length) return;
 
-  await atualizarCanalTV();
-
-  playCurrent();
-}
-
-async function saveAndStart() {
-  videos = readTable();
-
-  isSaving = true;
-
-  const ok = await salvarPlaylistFirebase();
-
-  isSaving = false;
-
-  if (!ok) return;
-
-  buildOrder();
-  currentPos = 0;
-
-  await atualizarCanalTV();
+  currentPos =
+    (currentPos - 1 + order.length)
+      % order.length;
 
   playCurrent();
 }
 
-function togglePlayPause() {
-  if (!videos.length) {
-    videos = readTable();
-    buildOrder();
-    playCurrent();
-    return;
-  }
+/* ================= FULLSCREEN ================= */
 
-  if (frame.style.display === 'block') {
-    setInfo('Use os controles do iframe para pausar YouTube/Instagram.');
-    return;
-  }
+fullscreenBtn.addEventListener(
+  'click',
+  toggleFullscreen
+);
 
-  if (player.paused) {
-    safePlayVideo();
+function toggleFullscreen() {
 
-    isPlaying = true;
-    playBtn.textContent = '⏸ Pausar';
+  const stage =
+    document.getElementById('stage');
 
-    startWatchdog();
+  if (
+    !document.fullscreenElement
+  ) {
 
-    setInfo('▶️ Reproduzindo');
+    if (stage.requestFullscreen) {
+      stage.requestFullscreen();
+    }
+
   } else {
-    player.pause();
 
-    isPlaying = false;
-    playBtn.textContent = '▶ Iniciar';
-
-    stopWatchdog();
-
-    setInfo('⏸️ Pausado');
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    }
   }
 }
 
-playBtn.addEventListener('click', togglePlayPause);
-nextBtn.addEventListener('click', nextVideo);
-prevBtn.addEventListener('click', prevVideo);
+document.addEventListener(
+  'fullscreenchange',
+  ajustarWatermark
+);
 
-shuffleBtn.addEventListener('change', async () => {
-  buildOrder();
-  currentPos = 0;
-  await atualizarCanalTV();
-  setInfo(shuffleBtn.checked ? '🔀 Shuffle ativado' : '📋 Ordem normal');
-});
+function ajustarWatermark() {
 
-addRowBtn.addEventListener('click', () => addRow());
-saveBtn.addEventListener('click', saveAndStart);
+  const watermark =
+    document.querySelector('.watermark');
 
-player.addEventListener('ended', () => {
-  setInfo('🏁 Vídeo terminou — próximo...');
-  nextVideo();
-});
+  watermark.style.display =
+    'block';
+}
 
-player.addEventListener('error', () => {
-  const errMsg = player.error?.message || 'erro desconhecido';
-  setInfo(`Erro vídeo: ${errMsg} — próximo...`, true);
-  nextVideo();
-});
+/* ================= EVENTS ================= */
 
-player.addEventListener('stalled', () => {
-  setInfo('Vídeo travado — próximo...', true);
-  nextVideo();
-});
+playBtn.addEventListener(
+  'click',
+  playCurrent
+);
 
-player.addEventListener('abort', () => {
-  setInfo('Vídeo abortado — próximo...', true);
-  nextVideo();
-});
+nextBtn.addEventListener(
+  'click',
+  nextVideo
+);
 
-player.addEventListener('waiting', () => {
-  setTimeout(() => {
-    if (!player.paused && player.readyState < 3) {
-      setInfo('Vídeo em espera — próximo...', true);
-      nextVideo();
-    }
-  }, 2000);
-});
+prevBtn.addEventListener(
+  'click',
+  prevVideo
+);
 
-carregarPlaylistFirebase().then(async () => {
-  ouvirPlaylistFirebase();
-  ouvirCanalTV();
+saveBtn.addEventListener(
+  'click',
+  salvarPlaylist
+);
 
-  setTimeout(async () => {
-    videos = readTable();
-    buildOrder();
+addRowBtn.addEventListener(
+  'click',
+  () => addRow()
+);
 
-    try {
-      const channelDoc = await CHANNEL_DOC.get();
+player.addEventListener(
+  'ended',
+  nextVideo
+);
 
-      if (channelDoc.exists && typeof channelDoc.data().currentPos === 'number' && order.length) {
-        currentPos = channelDoc.data().currentPos % order.length;
-      } else {
-        currentPos = 0;
-        await atualizarCanalTV();
-      }
+player.addEventListener(
+  'error',
+  nextVideo
+);
 
-    } catch (error) {
-      currentPos = 0;
-    }
+player.addEventListener(
+  'stalled',
+  nextVideo
+);
 
-    playCurrent();
-  }, 1000);
-});
+/* ================= INIT ================= */
+
+carregarPlaylist()
+  .then(() => {
+
+    ouvirPlaylist();
+
+    setTimeout(() => {
+
+      videos = readTable();
+
+      buildOrder();
+
+      playCurrent();
+
+    }, 1000);
+  });
 </script>
 
 </body>
