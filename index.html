@@ -231,7 +231,7 @@ tr.active td { border-color: #3b82f6; }
 
 <div class="player-container">
   <div id="stage">
-    <video id="player" controls playsinline></video>
+    <video id="player" controls playsinline autoplay muted></video>
 
     <iframe
       id="frame"
@@ -262,8 +262,7 @@ tr.active td { border-color: #3b82f6; }
 
 <div class="warn">
   <strong>📌 Notas:</strong>
-  A playlist vem apenas do Firebase. Se removeres um vídeo e salvares, ele não volta.
-  O modo canal tenta manter todos os visitantes no mesmo item da playlist.
+  Autoplay começa sem som por regras do navegador. Para som, ativa no player depois do início.
 </div>
 
 <div class="playlist-header">
@@ -799,16 +798,18 @@ function loadHLSVideo(url) {
 }
 
 async function safePlayVideo() {
-  player.muted = false;
+  player.muted = true;
   player.volume = 1;
   player.autoplay = true;
   player.playsInline = true;
 
   try {
     await player.play();
+    isPlaying = true;
+    playBtn.textContent = '⏸ Pausar';
   } catch (error) {
-    console.warn('Autoplay com som bloqueado:', error);
-    setInfo('Autoplay com som bloqueado. Clique em ▶ Iniciar.', true);
+    console.warn('Autoplay bloqueado:', error);
+    setInfo('Autoplay bloqueado. Clique em ▶ Iniciar.', true);
   }
 }
 
@@ -842,7 +843,7 @@ async function playCurrent() {
 
       const params = new URLSearchParams({
         autoplay: '1',
-        mute: '0',
+        mute: '1',
         rel: '0',
         playsinline: '1',
         enablejsapi: '1'
