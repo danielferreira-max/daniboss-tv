@@ -261,7 +261,7 @@ tr.active td { border-color: #3b82f6; }
 
 <div class="warn">
   <strong>📌 Notas:</strong>
-  Autoplay começa sem som por regra do navegador. Se o vídeo terminar, travar ou ficar parado, passa logo ao próximo.
+  Instagram pode não fazer autoplay. Se não tocar, passa automaticamente ao próximo.
 </div>
 
 <div class="playlist-header">
@@ -273,7 +273,7 @@ tr.active td { border-color: #3b82f6; }
 </div>
 
 <p class="hint">
-  💡 Início/Fim em segundos. Vazio = vídeo inteiro. Tipo "auto" detecta pela URL.
+  💡 Para Instagram/Reels, recomenda-se colocar Fim = 10 ou 15 segundos.
 </p>
 
 <div class="table-wrapper">
@@ -849,7 +849,6 @@ async function playCurrent() {
       setInfo(`▶️ YouTube: ${video.note || youtubeId}`);
 
       let duration = 300;
-
       if (video.end && video.start) duration = video.end - video.start;
       else if (video.end) duration = video.end;
 
@@ -866,14 +865,16 @@ async function playCurrent() {
       isPlaying = true;
       playBtn.textContent = '⏸ Pausar';
 
-      setInfo(`📸 Instagram: ${video.note || instaPath}`);
+      setInfo(`📸 Instagram carregado: ${video.note || instaPath}`);
 
-      let duration = 60;
-
+      let duration = 20;
       if (video.end && video.start) duration = video.end - video.start;
       else if (video.end) duration = video.end;
 
-      frameTimeout = setTimeout(nextVideo, Math.min(duration * 1000 + 5000, 180000));
+      frameTimeout = setTimeout(() => {
+        setInfo('📸 Instagram sem autoplay — próximo...');
+        nextVideo();
+      }, Math.min(duration * 1000, 60000));
 
     } else if (resolvedType === 'hls') {
       await loadHLSVideo(video.url);
@@ -971,7 +972,7 @@ function togglePlayPause() {
   }
 
   if (frame.style.display === 'block') {
-    setInfo('Use os controles do iframe para pausar YouTube/Instagram.');
+    setInfo('Use os controles do iframe para pausar YouTube/Instagram/Instagram.');
     return;
   }
 
