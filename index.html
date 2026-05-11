@@ -5,235 +5,210 @@
 <title>Player com Playlist Editável + Firebase</title>
 
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 
 <style>
-  * { box-sizing: border-box; }
+* { box-sizing: border-box; }
 
-  body {
-    font-family: system-ui, -apple-system, sans-serif;
-    max-width: 1300px;
-    margin: 20px auto;
-    padding: 0 20px;
-    background: #0a0a0a;
-    color: #e5e5e5;
-  }
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  max-width: 1300px;
+  margin: 20px auto;
+  padding: 0 20px;
+  background: #0a0a0a;
+  color: #e5e5e5;
+}
 
-  h2 {
-    margin: 0 0 8px 0;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
+h2 {
+  margin: 0 0 8px 0;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 
-  .badge {
-    font-size: 12px;
-    background: #2e2e2e;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-weight: normal;
-  }
+.badge {
+  font-size: 12px;
+  background: #2e2e2e;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-weight: normal;
+}
 
-  .player-container {
-    background: #000;
-    border-radius: 16px;
-    overflow: hidden;
-    margin-bottom: 20px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-  }
+.player-container {
+  background: #000;
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
 
-  #stage {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    background: #000;
-  }
+#stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+}
 
-  #player {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-  }
+#player, #frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
 
-  #frame {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    border: 0;
-    display: none;
-  }
+#player { object-fit: contain; }
 
-  #info {
-    margin: 12px 0;
-    padding: 10px 16px;
-    background: #1a1a1a;
-    border-radius: 10px;
-    font-size: 13px;
-    color: #aaa;
-    font-family: monospace;
-    border-left: 3px solid #3b82f6;
-  }
+#frame {
+  border: 0;
+  display: none;
+}
 
-  .controls {
-    margin: 15px 0;
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    align-items: center;
-  }
+#info {
+  margin: 12px 0;
+  padding: 10px 16px;
+  background: #1a1a1a;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #aaa;
+  font-family: monospace;
+  border-left: 3px solid #3b82f6;
+}
 
-  button {
-    padding: 8px 20px;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 14px;
-    transition: all 0.2s ease;
-  }
+.controls {
+  margin: 15px 0;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
 
-  button.primary { background: #3b82f6; color: white; }
-  button.primary:hover { background: #2563eb; transform: scale(1.02); }
+button {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+}
 
-  button.secondary { background: #374151; color: #e5e5e5; }
-  button.secondary:hover { background: #4b5563; }
+button.primary { background: #3b82f6; color: white; }
+button.secondary { background: #374151; color: #e5e5e5; }
 
-  button.danger { background: #ef4444; color: white; }
-  button.danger:hover { background: #dc2626; }
+label.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #1a1a1a;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
 
-  label.toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: #1a1a1a;
-    padding: 6px 14px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 14px;
-  }
+.playlist-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 24px 0 12px 0;
+  flex-wrap: wrap;
+  gap: 12px;
+}
 
-  label.toggle input {
-    width: 18px;
-    height: 18px;
-    cursor: pointer;
-  }
+.warn {
+  background: #2d2a1a;
+  border-left: 4px solid #eab308;
+  padding: 10px 16px;
+  font-size: 12px;
+  margin: 16px 0;
+  border-radius: 8px;
+  color: #ccc;
+}
 
-  .playlist-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin: 24px 0 12px 0;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
+.hint {
+  font-size: 12px;
+  color: #888;
+}
 
-  .playlist-header h3 { margin: 0; }
+.table-wrapper {
+  max-height: 450px;
+  overflow-y: auto;
+  border-radius: 12px;
+  border: 1px solid #2a2a2a;
+}
 
-  .hint {
-    font-size: 12px;
-    color: #888;
-    margin: 8px 0;
-  }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: #111;
+}
 
-  .warn {
-    background: #2d2a1a;
-    border-left: 4px solid #eab308;
-    padding: 10px 16px;
-    font-size: 12px;
-    margin: 16px 0;
-    border-radius: 8px;
-    color: #ccc;
-  }
+th, td {
+  border: 1px solid #2a2a2a;
+  padding: 8px 6px;
+}
 
-  .table-wrapper {
-    max-height: 450px;
-    overflow-y: auto;
-    border-radius: 12px;
-    border: 1px solid #2a2a2a;
-  }
+th {
+  background: #1e1e1e;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
 
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-    background: #111;
-  }
+td input, td select {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #3a3a3a;
+  border-radius: 6px;
+  background: #1a1a1a;
+  color: #e5e5e5;
+  font-size: 12px;
+}
 
-  th, td {
-    border: 1px solid #2a2a2a;
-    padding: 8px 6px;
-    vertical-align: middle;
-  }
+td.url input {
+  font-family: monospace;
+  font-size: 11px;
+}
 
-  th {
-    background: #1e1e1e;
-    color: #ddd;
-    font-weight: 600;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-  }
+td.num { width: 85px; }
+td.type { width: 100px; }
+td.actions { width: 55px; text-align: center; }
 
-  td input, td select {
-    width: 100%;
-    padding: 6px 8px;
-    border: 1px solid #3a3a3a;
-    border-radius: 6px;
-    background: #1a1a1a;
-    color: #e5e5e5;
-    font-size: 12px;
-  }
+.row-btn {
+  background: #dc2626;
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 6px;
+  color: white;
+}
 
-  td input:focus, td select:focus {
-    outline: none;
-    border-color: #3b82f6;
-  }
+tr.active {
+  background: #1e3a5f;
+}
 
-  td.url input {
-    font-family: monospace;
-    font-size: 11px;
-  }
+tr.active td {
+  border-color: #3b82f6;
+}
 
-  td.num { width: 85px; }
-  td.type { width: 100px; }
-  td.actions { width: 55px; text-align: center; }
+.status-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
 
-  .row-btn {
-    background: #dc2626;
-    padding: 4px 8px;
-    font-size: 12px;
-    border-radius: 6px;
-    color: white;
-    border: none;
-    cursor: pointer;
-  }
+.status-playing {
+  background: #22c55e;
+  box-shadow: 0 0 5px #22c55e;
+}
 
-  .row-btn:hover { background: #b91c1c; }
-
-  tr.active { background: #1e3a5f; }
-  tr.active td { border-color: #3b82f6; }
-
-  .status-dot {
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    margin-right: 8px;
-  }
-
-  .status-playing {
-    background: #22c55e;
-    box-shadow: 0 0 5px #22c55e;
-  }
-
-  .status-paused { background: #6b7280; }
+.status-paused {
+  background: #6b7280;
+}
 </style>
 </head>
 
@@ -246,7 +221,7 @@
 
 <div class="player-container">
   <div id="stage">
-    <video id="player" controls playsinline></video>
+    <video id="player" controls playsinline muted></video>
     <iframe id="frame" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>
   </div>
 </div>
@@ -268,9 +243,7 @@
 
 <div class="warn">
   <strong>📌 Notas:</strong>
-  A playlist é guardada no Firebase Firestore. YouTube/Instagram usam iframe.
-  HLS/MP4 usam o player nativo. A chave Firebase no frontend não é secreta;
-  proteja com regras do Firestore.
+  A playlist é guardada no Firebase Firestore. Para autoplay funcionar melhor, vídeos diretos e YouTube iniciam sem som.
 </div>
 
 <div class="playlist-header">
@@ -319,7 +292,6 @@ firebase.initializeApp(firebaseConfig);
 
 const db = firebase.firestore();
 const auth = firebase.auth();
-
 const PLAYLIST_DOC = db.collection('playlists').doc('principal');
 
 // ==================== DOM ====================
@@ -343,16 +315,19 @@ let timeUpdateHandler = null;
 let frameTimeout = null;
 let isPlaying = false;
 let isShuffled = false;
-let isLoadingRemote = false;
+let isSaving = false;
 
 // ==================== PLAYLIST PADRÃO ====================
 const INITIAL_PLAYLIST = [
   ['https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', 'hls', '5', '20', 'demo HLS'],
   ['https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', 'mp4', '', '', 'demo MP4'],
-  ['https://www.youtube.com/watch?v=KSNUugQuweY', 'auto', '', '', 'YouTube'],
-  ['https://www.youtube.com/watch?v=w-15vFFBnCc', 'auto', '', '', 'YouTube'],
-  ['https://www.youtube.com/shorts/eiB1zk97wNk', 'auto', '', '60', 'Short com corte 60s'],
-  ['https://www.instagram.com/reel/DYAP9Vlo0o_/', 'auto', '', '60', 'Instagram Reel']
+
+  ['https://www.instagram.com/reels/DXCOFu7EvA8/', 'auto', '', '60', 'Instagram Reel'],
+  ['https://www.youtube.com/watch?v=PVDBvwOJHyw', 'auto', '', '', 'YouTube'],
+  ['https://www.youtube.com/shorts/47k_Dhvgjrg', 'auto', '', '60', 'YouTube Shorts'],
+  ['https://www.youtube.com/watch?v=L9VicSX1LM0', 'auto', '', '', 'YouTube'],
+  ['https://www.youtube.com/watch?v=Fci4s0CC0mE', 'auto', '', '', 'YouTube'],
+  ['https://www.youtube.com/shorts/RfT-Fe4h0CU', 'auto', '', '60', 'YouTube Shorts']
 ];
 
 // ==================== INFO ====================
@@ -361,12 +336,11 @@ function setInfo(message, isError = false) {
     <span class="status-dot ${isPlaying ? 'status-playing' : 'status-paused'}"></span>
     ${isError ? '⚠️ ' : ''}${message}
   `;
-
   infoDiv.style.borderLeftColor = isError ? '#ef4444' : '#3b82f6';
   console.log(message);
 }
 
-// ==================== FIREBASE AUTH ====================
+// ==================== FIREBASE ====================
 async function iniciarAuth() {
   if (!auth.currentUser) {
     await auth.signInAnonymously();
@@ -383,7 +357,7 @@ async function carregarPlaylistFirebase() {
 
     tbody.innerHTML = '';
 
-    if (doc.exists && Array.isArray(doc.data().videos)) {
+    if (doc.exists && Array.isArray(doc.data().videos) && doc.data().videos.length) {
       doc.data().videos.forEach(v => {
         addRow([
           v.url || '',
@@ -397,7 +371,7 @@ async function carregarPlaylistFirebase() {
       setInfo('✅ Playlist carregada do Firebase.');
     } else {
       INITIAL_PLAYLIST.forEach(addRow);
-      setInfo('📋 Playlist inicial carregada. Clique em salvar para enviar ao Firebase.');
+      setInfo('📋 Playlist inicial carregada.');
     }
 
     videos = readTable();
@@ -405,7 +379,7 @@ async function carregarPlaylistFirebase() {
 
   } catch (error) {
     console.error(error);
-    setInfo(`Erro ao carregar Firebase: ${error.message}`, true);
+    setInfo(`Erro Firebase: ${error.message}`, true);
 
     tbody.innerHTML = '';
     INITIAL_PLAYLIST.forEach(addRow);
@@ -417,35 +391,34 @@ async function carregarPlaylistFirebase() {
 
 async function salvarPlaylistFirebase() {
   try {
-    const lista = readTable();
-
     await iniciarAuth();
+
+    const lista = readTable();
 
     await PLAYLIST_DOC.set({
       videos: lista,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
 
-    setInfo(`💾 Playlist salva no Firebase: ${lista.length} vídeos.`);
+    setInfo(`💾 Playlist salva: ${lista.length} vídeos.`);
 
   } catch (error) {
     console.error(error);
-    setInfo(`Erro ao salvar no Firebase: ${error.message}`, true);
+    setInfo(`Erro ao salvar: ${error.message}`, true);
   }
 }
 
 function ouvirPlaylistFirebase() {
   PLAYLIST_DOC.onSnapshot(snapshot => {
+    if (isSaving) return;
     if (!snapshot.exists) return;
-    if (!Array.isArray(snapshot.data().videos)) return;
 
-    if (isLoadingRemote) return;
-
-    const lista = snapshot.data().videos;
+    const data = snapshot.data();
+    if (!Array.isArray(data.videos)) return;
 
     tbody.innerHTML = '';
 
-    lista.forEach(v => {
+    data.videos.forEach(v => {
       addRow([
         v.url || '',
         v.type || 'auto',
@@ -458,14 +431,11 @@ function ouvirPlaylistFirebase() {
     videos = readTable();
     buildOrder();
 
-    setInfo('🔄 Playlist sincronizada em tempo real.');
-  }, error => {
-    console.error(error);
-    setInfo(`Erro no listener Firebase: ${error.message}`, true);
+    setInfo('🔄 Playlist sincronizada.');
   });
 }
 
-// ==================== UTILITÁRIOS ====================
+// ==================== UTILS ====================
 function detectType(url) {
   if (!url) return 'mp4';
 
@@ -498,10 +468,7 @@ function getInstagramPath(url) {
   const match = url.match(/instagram\.com\/(reel|reels|p)\/([^\/?#]+)/i);
   if (!match) return null;
 
-  const type = match[1].toLowerCase() === 'reels'
-    ? 'reel'
-    : match[1].toLowerCase();
-
+  const type = match[1].toLowerCase() === 'reels' ? 'reel' : match[1].toLowerCase();
   return `${type}/${match[2]}`;
 }
 
@@ -523,33 +490,20 @@ function renderRow(idx, url, type, start, end, note) {
 
   return `
     <td>${idx}</td>
-    <td class="url">
-      <input type="text" value="${escAttr(url)}" placeholder="https://...">
-    </td>
-    <td class="type">
-      <select>${typeOptions}</select>
-    </td>
-    <td class="num">
-      <input type="number" step="1" value="${escAttr(start)}" placeholder="seg">
-    </td>
-    <td class="num">
-      <input type="number" step="1" value="${escAttr(end)}" placeholder="seg">
-    </td>
-    <td>
-      <input type="text" value="${escAttr(note)}" placeholder="Nota">
-    </td>
-    <td class="actions">
-      <button class="row-btn" title="Remover">✕</button>
-    </td>
+    <td class="url"><input type="text" value="${escAttr(url)}" placeholder="https://..."></td>
+    <td class="type"><select>${typeOptions}</select></td>
+    <td class="num"><input type="number" step="1" value="${escAttr(start)}" placeholder="seg"></td>
+    <td class="num"><input type="number" step="1" value="${escAttr(end)}" placeholder="seg"></td>
+    <td><input type="text" value="${escAttr(note)}" placeholder="Nota"></td>
+    <td class="actions"><button class="row-btn" title="Remover">✕</button></td>
   `;
 }
 
 function addRow(data = ['', 'auto', '', '', '']) {
   const tr = document.createElement('tr');
-  const idx = tbody.children.length + 1;
 
   tr.innerHTML = renderRow(
-    idx,
+    tbody.children.length + 1,
     data[0],
     data[1],
     data[2],
@@ -580,14 +534,11 @@ function readTable() {
     const url = inputs[0].value.trim();
     if (!url) return;
 
-    const startValue = inputs[2].value;
-    const endValue = inputs[3].value;
-
     newVideos.push({
       url,
       type: inputs[1].value,
-      start: startValue === '' ? null : Number(startValue),
-      end: endValue === '' ? null : Number(endValue),
+      start: inputs[2].value === '' ? null : Number(inputs[2].value),
+      end: inputs[3].value === '' ? null : Number(inputs[3].value),
       note: inputs[4].value.trim()
     });
   });
@@ -608,10 +559,7 @@ function clearPlayback() {
   }
 
   if (activeHls) {
-    try {
-      activeHls.destroy();
-    } catch (e) {}
-
+    try { activeHls.destroy(); } catch (e) {}
     activeHls = null;
   }
 
@@ -686,12 +634,8 @@ function loadHLSVideo(url) {
     if (!Hls.isSupported()) {
       if (player.canPlayType('application/vnd.apple.mpegURL')) {
         player.src = url;
-
         player.addEventListener('loadedmetadata', resolve, { once: true });
-        player.addEventListener('error', () => {
-          reject(new Error('Erro HLS nativo'));
-        }, { once: true });
-
+        player.addEventListener('error', () => reject(new Error('Erro HLS nativo')), { once: true });
       } else {
         reject(new Error('HLS não suportado neste navegador'));
       }
@@ -707,7 +651,7 @@ function loadHLSVideo(url) {
     });
 
     const timeout = setTimeout(() => {
-      reject(new Error('Timeout loading HLS'));
+      reject(new Error('Timeout HLS'));
     }, 30000);
 
     activeHls.loadSource(url);
@@ -727,6 +671,27 @@ function loadHLSVideo(url) {
   });
 }
 
+async function safePlayVideo() {
+  player.muted = true;
+  player.autoplay = true;
+  player.playsInline = true;
+
+  try {
+    await player.play();
+  } catch (error) {
+    console.warn('Autoplay bloqueado, segunda tentativa...', error);
+
+    setTimeout(async () => {
+      try {
+        player.muted = true;
+        await player.play();
+      } catch (e) {
+        console.warn('Segunda tentativa falhou:', e);
+      }
+    }, 500);
+  }
+}
+
 async function playCurrent() {
   if (!videos.length) {
     setInfo('Playlist vazia. Adicione vídeos.', true);
@@ -740,9 +705,7 @@ async function playCurrent() {
   if (currentPos >= order.length) currentPos = 0;
 
   const video = videos[order[currentPos]];
-  const resolvedType = video.type === 'auto'
-    ? detectType(video.url)
-    : video.type;
+  const resolvedType = video.type === 'auto' ? detectType(video.url) : video.type;
 
   clearPlayback();
   highlightCurrentRow();
@@ -756,8 +719,10 @@ async function playCurrent() {
 
       const params = new URLSearchParams({
         autoplay: '1',
+        mute: '1',
         rel: '0',
-        playsinline: '1'
+        playsinline: '1',
+        enablejsapi: '1'
       });
 
       if (video.start && video.start > 0) params.set('start', video.start);
@@ -773,14 +738,10 @@ async function playCurrent() {
       setInfo(`▶️ YouTube: ${video.note || youtubeId}`);
 
       let duration = 300;
-
       if (video.end && video.start) duration = video.end - video.start;
       else if (video.end) duration = video.end;
 
-      frameTimeout = setTimeout(
-        nextVideo,
-        Math.min(duration * 1000 + 5000, 300000)
-      );
+      frameTimeout = setTimeout(nextVideo, Math.min(duration * 1000 + 5000, 300000));
 
     } else if (resolvedType === 'instagram') {
       const instaPath = getInstagramPath(video.url);
@@ -796,19 +757,15 @@ async function playCurrent() {
       setInfo(`📸 Instagram: ${video.note || instaPath}`);
 
       let duration = 60;
-
       if (video.end && video.start) duration = video.end - video.start;
       else if (video.end) duration = video.end;
 
-      frameTimeout = setTimeout(
-        nextVideo,
-        Math.min(duration * 1000 + 5000, 180000)
-      );
+      frameTimeout = setTimeout(nextVideo, Math.min(duration * 1000 + 5000, 180000));
 
     } else if (resolvedType === 'hls') {
       await loadHLSVideo(video.url);
       setupTimeCuts(video);
-      await player.play();
+      await safePlayVideo();
 
       isPlaying = true;
       playBtn.textContent = '⏸ Pausar';
@@ -819,9 +776,7 @@ async function playCurrent() {
       player.src = video.url;
 
       await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Timeout MP4'));
-        }, 15000);
+        const timeout = setTimeout(() => reject(new Error('Timeout MP4')), 15000);
 
         player.addEventListener('loadedmetadata', () => {
           clearTimeout(timeout);
@@ -830,12 +785,12 @@ async function playCurrent() {
 
         player.addEventListener('error', () => {
           clearTimeout(timeout);
-          reject(new Error('Erro ao carregar MP4'));
+          reject(new Error('Erro MP4'));
         }, { once: true });
       });
 
       setupTimeCuts(video);
-      await player.play();
+      await safePlayVideo();
 
       isPlaying = true;
       playBtn.textContent = '⏸ Pausar';
@@ -849,7 +804,7 @@ async function playCurrent() {
 
     setInfo(`Erro [${resolvedType}]: ${error.message}`, true);
 
-    setTimeout(nextVideo, 1500);
+    setTimeout(nextVideo, 2000);
   }
 }
 
@@ -872,15 +827,13 @@ async function saveAndStart() {
   videos = readTable();
 
   if (!videos.length) {
-    setInfo('Playlist vazia. Adicione pelo menos um vídeo.', true);
+    setInfo('Playlist vazia.', true);
     return;
   }
 
-  isLoadingRemote = true;
-
+  isSaving = true;
   await salvarPlaylistFirebase();
-
-  isLoadingRemote = false;
+  isSaving = false;
 
   buildOrder();
   playCurrent();
@@ -898,19 +851,14 @@ function togglePlayPause() {
   }
 
   if (player.paused) {
-    player.play();
-
+    safePlayVideo();
     isPlaying = true;
     playBtn.textContent = '⏸ Pausar';
-
     setInfo('▶️ Reproduzindo');
-
   } else {
     player.pause();
-
     isPlaying = false;
     playBtn.textContent = '▶ Iniciar';
-
     setInfo('⏸️ Pausado');
   }
 }
