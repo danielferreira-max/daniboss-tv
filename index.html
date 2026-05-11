@@ -41,7 +41,6 @@ h2 {
   border-radius: 16px;
   overflow: hidden;
   margin-bottom: 20px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
 }
 
 #stage {
@@ -51,7 +50,8 @@ h2 {
   background: #000;
 }
 
-#player, #frame {
+#player,
+#frame {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -78,7 +78,6 @@ h2 {
   font-weight: 700;
   letter-spacing: 1px;
   pointer-events: none;
-  user-select: none;
 }
 
 .watermark span { color: #3b82f6; }
@@ -175,7 +174,8 @@ th {
   z-index: 10;
 }
 
-td input, td select {
+td input,
+td select {
   width: 100%;
   padding: 6px 8px;
   border: 1px solid #3a3a3a;
@@ -262,7 +262,7 @@ tr.active td { border-color: #3b82f6; }
 
 <div class="warn">
   <strong>📌 Notas:</strong>
-  A playlist vem apenas do Firebase. Se apagares um vídeo e salvares, ele não volta.
+  A playlist vem apenas do Firebase. Se removeres um vídeo e salvares, ele não volta.
 </div>
 
 <div class="playlist-header">
@@ -348,13 +348,14 @@ function setInfo(message, isError = false) {
   console.log(message);
 }
 
-// ==================== FIREBASE ====================
+// ==================== AUTH ====================
 async function iniciarAuth() {
   if (!auth.currentUser) {
     await auth.signInAnonymously();
   }
 }
 
+// ==================== FIREBASE ====================
 async function carregarPlaylistFirebase() {
   try {
     setInfo('☁️ A carregar playlist do Firebase...');
@@ -380,9 +381,11 @@ async function carregarPlaylistFirebase() {
 
   } catch (error) {
     console.error(error);
+
     renderPlaylist([]);
     videos = [];
     buildOrder();
+
     setInfo(`Erro Firebase: ${error.message}`, true);
   }
 }
@@ -426,6 +429,7 @@ function ouvirPlaylistFirebase() {
     if (!snapshot.exists) return;
 
     const data = snapshot.data();
+
     if (!Array.isArray(data.videos)) return;
 
     renderPlaylist(data.videos);
@@ -474,7 +478,9 @@ function getInstagramPath(url) {
   const match = url.match(/instagram\.com\/(reel|reels|p)\/([^\/?#]+)/i);
   if (!match) return null;
 
-  const type = match[1].toLowerCase() === 'reels' ? 'reel' : match[1].toLowerCase();
+  const type = match[1].toLowerCase() === 'reels'
+    ? 'reel'
+    : match[1].toLowerCase();
 
   return `${type}/${match[2]}`;
 }
@@ -553,6 +559,7 @@ function readTable() {
     const inputs = row.querySelectorAll('input, select');
 
     const url = inputs[0].value.trim();
+
     if (!url) return;
 
     newVideos.push({
@@ -655,8 +662,13 @@ function loadHLSVideo(url) {
     if (!Hls.isSupported()) {
       if (player.canPlayType('application/vnd.apple.mpegURL')) {
         player.src = url;
+
         player.addEventListener('loadedmetadata', resolve, { once: true });
-        player.addEventListener('error', () => reject(new Error('Erro HLS nativo')), { once: true });
+
+        player.addEventListener('error', () => {
+          reject(new Error('Erro HLS nativo'));
+        }, { once: true });
+
       } else {
         reject(new Error('HLS não suportado neste navegador'));
       }
@@ -717,7 +729,9 @@ async function playCurrent() {
   if (currentPos >= order.length) currentPos = 0;
 
   const video = videos[order[currentPos]];
-  const resolvedType = video.type === 'auto' ? detectType(video.url) : video.type;
+  const resolvedType = video.type === 'auto'
+    ? detectType(video.url)
+    : video.type;
 
   clearPlayback();
   highlightCurrentRow();
@@ -725,7 +739,10 @@ async function playCurrent() {
   try {
     if (resolvedType === 'youtube') {
       const youtubeId = getYouTubeId(video.url);
-      if (!youtubeId) throw new Error('ID YouTube inválido');
+
+      if (!youtubeId) {
+        throw new Error('ID YouTube inválido');
+      }
 
       const params = new URLSearchParams({
         autoplay: '1',
@@ -735,8 +752,13 @@ async function playCurrent() {
         enablejsapi: '1'
       });
 
-      if (video.start && video.start > 0) params.set('start', video.start);
-      if (video.end && video.end > 0) params.set('end', video.end);
+      if (video.start && video.start > 0) {
+        params.set('start', video.start);
+      }
+
+      if (video.end && video.end > 0) {
+        params.set('end', video.end);
+      }
 
       frame.src = `https://www.youtube.com/embed/${youtubeId}?${params.toString()}`;
       frame.style.display = 'block';
@@ -748,14 +770,24 @@ async function playCurrent() {
       setInfo(`▶️ YouTube: ${video.note || youtubeId}`);
 
       let duration = 300;
-      if (video.end && video.start) duration = video.end - video.start;
-      else if (video.end) duration = video.end;
 
-      frameTimeout = setTimeout(nextVideo, Math.min(duration * 1000 + 5000, 300000));
+      if (video.end && video.start) {
+        duration = video.end - video.start;
+      } else if (video.end) {
+        duration = video.end;
+      }
+
+      frameTimeout = setTimeout(
+        nextVideo,
+        Math.min(duration * 1000 + 5000, 300000)
+      );
 
     } else if (resolvedType === 'instagram') {
       const instaPath = getInstagramPath(video.url);
-      if (!instaPath) throw new Error('URL Instagram inválida');
+
+      if (!instaPath) {
+        throw new Error('URL Instagram inválida');
+      }
 
       frame.src = `https://www.instagram.com/${instaPath}/embed`;
       frame.style.display = 'block';
@@ -767,10 +799,17 @@ async function playCurrent() {
       setInfo(`📸 Instagram: ${video.note || instaPath}`);
 
       let duration = 60;
-      if (video.end && video.start) duration = video.end - video.start;
-      else if (video.end) duration = video.end;
 
-      frameTimeout = setTimeout(nextVideo, Math.min(duration * 1000 + 5000, 180000));
+      if (video.end && video.start) {
+        duration = video.end - video.start;
+      } else if (video.end) {
+        duration = video.end;
+      }
+
+      frameTimeout = setTimeout(
+        nextVideo,
+        Math.min(duration * 1000 + 5000, 180000)
+      );
 
     } else if (resolvedType === 'hls') {
       await loadHLSVideo(video.url);
@@ -786,7 +825,9 @@ async function playCurrent() {
       player.src = video.url;
 
       await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error('Timeout MP4')), 15000);
+        const timeout = setTimeout(() => {
+          reject(new Error('Timeout MP4'));
+        }, 15000);
 
         player.addEventListener('loadedmetadata', () => {
           clearTimeout(timeout);
@@ -863,13 +904,17 @@ function togglePlayPause() {
 
   if (player.paused) {
     safePlayVideo();
+
     isPlaying = true;
     playBtn.textContent = '⏸ Pausar';
+
     setInfo('▶️ Reproduzindo');
   } else {
     player.pause();
+
     isPlaying = false;
     playBtn.textContent = '▶ Iniciar';
+
     setInfo('⏸️ Pausado');
   }
 }
@@ -891,7 +936,9 @@ player.addEventListener('ended', nextVideo);
 
 player.addEventListener('error', () => {
   const errMsg = player.error?.message || 'erro desconhecido';
+
   setInfo(`Erro vídeo: ${errMsg}`, true);
+
   setTimeout(nextVideo, 2000);
 });
 
