@@ -661,6 +661,8 @@ function stopWatchdog() {
 function clearPlayback() {
   stopWatchdog();
 
+  isPlaying = false;
+
   if (timeUpdateHandler) {
     player.removeEventListener('timeupdate', timeUpdateHandler);
     timeUpdateHandler = null;
@@ -972,7 +974,7 @@ function togglePlayPause() {
   }
 
   if (frame.style.display === 'block') {
-    setInfo('Use os controles do iframe para pausar YouTube/Instagram/Instagram.');
+    setInfo('Use os controles do iframe para pausar YouTube/Instagram.');
     return;
   }
 
@@ -1030,13 +1032,6 @@ player.addEventListener('stalled', () => {
 player.addEventListener('abort', () => {
   setInfo('Vídeo abortado — próximo...', true);
   nextVideo();
-});
-
-player.addEventListener('emptied', () => {
-  if (isPlaying) {
-    setInfo('Vídeo vazio — próximo...', true);
-    nextVideo();
-  }
 });
 
 player.addEventListener('waiting', () => {
