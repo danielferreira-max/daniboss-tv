@@ -236,8 +236,7 @@ tr.active td { border-color: #3b82f6; }
 
 <div class="warn">
   <strong>📌 Notas:</strong>
-  A playlist é guardada no Firebase Firestore. Ao carregar, os vídeos salvos são mantidos
-  e os vídeos padrão que faltarem são adicionados automaticamente.
+  A playlist é guardada no Firebase Firestore. Linhas novas só são gravadas se tiverem URL.
 </div>
 
 <div class="playlist-header">
@@ -310,6 +309,7 @@ let frameTimeout = null;
 let isPlaying = false;
 let isShuffled = false;
 let isSaving = false;
+let unsubscribeFirebase = null;
 
 // ==================== PLAYLIST COMPLETA ====================
 const INITIAL_PLAYLIST = [
@@ -404,23 +404,11 @@ async function carregarPlaylistFirebase() {
 
     if (doc.exists && Array.isArray(doc.data().videos)) {
       listaFinal = juntarSemRemover(doc.data().videos, padrao);
-      setInfo('✅ Playlist carregada e completada sem remover vídeos.');
     } else {
       listaFinal = padrao;
-      setInfo('📋 Playlist inicial carregada.');
     }
 
-    tbody.innerHTML = '';
-
-    listaFinal.forEach(v => {
-      addRow([
-        v.url || '',
-        v.type || 'auto',
-        v.start ?? '',
-        v.end ?? '',
-        v.note || ''
-      ]);
-    });
+    renderPlaylist(listaFinal);
 
     videos = readTable();
     buildOrder();
@@ -428,15 +416,15 @@ async function carregarPlaylistFirebase() {
     await PLAYLIST_DOC.set({
       videos,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
+    });
+
+    setInfo(`✅ Playlist carregada: ${videos.length} vídeos.`);
 
   } catch (error) {
     console.error(error);
     setInfo(`Erro Firebase: ${error.message}`, true);
 
-    tbody.innerHTML = '';
-    INITIAL_PLAYLIST.forEach(addRow);
-
+    renderPlaylist(playlistArrayToObjects(INITIAL_PLAYLIST));
     videos = readTable();
     buildOrder();
   }
@@ -448,43 +436,60 @@ async function salvarPlaylistFirebase() {
 
     const lista = readTable();
 
+    if (!lista.length) {
+      throw new Error('Nenhuma linha com URL para salvar.');
+    }
+
     await PLAYLIST_DOC.set({
       videos: lista,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
+    });
 
-    setInfo(`💾 Playlist salva: ${lista.length} vídeos.`);
+    const confirmacao = await PLAYLIST_DOC.get();
+
+    if (!confirmacao.exists) {
+      throw new Error('Documento não foi criado no Firestore.');
+    }
+
+    const videosSalvos = confirmacao.data().videos || [];
+
+    if (videosSalvos.length !== lista.length) {
+      throw new Error(`Foram enviados ${lista.length}, mas só existem ${videosSalvos.length} no Firestore.`);
+    }
+
+    setInfo(`💾 Playlist salva e confirmada: ${videosSalvos.length} vídeos.`);
+    return true;
 
   } catch (error) {
     console.error(error);
-    setInfo(`Erro ao salvar: ${error.message}`, true);
+    setInfo(`Erro ao salvar no Firebase: ${error.message}`, true);
+    return false;
   }
 }
 
 function ouvirPlaylistFirebase() {
-  PLAYLIST_DOC.onSnapshot(snapshot => {
+  if (unsubscribeFirebase) {
+    unsubscribeFirebase();
+  }
+
+  unsubscribeFirebase = PLAYLIST_DOC.onSnapshot(snapshot => {
     if (isSaving) return;
     if (!snapshot.exists) return;
 
     const data = snapshot.data();
+
     if (!Array.isArray(data.videos)) return;
 
-    tbody.innerHTML = '';
-
-    data.videos.forEach(v => {
-      addRow([
-        v.url || '',
-        v.type || 'auto',
-        v.start ?? '',
-        v.end ?? '',
-        v.note || ''
-      ]);
-    });
+    renderPlaylist(data.videos);
 
     videos = readTable();
     buildOrder();
 
-    setInfo('🔄 Playlist sincronizada.');
+    setInfo(`🔄 Playlist sincronizada: ${videos.length} vídeos.`);
+
+  }, error => {
+    console.error(error);
+    setInfo(`Erro ao sincronizar Firebase: ${error.message}`, true);
   });
 }
 
@@ -535,6 +540,20 @@ function escAttr(str) {
 }
 
 // ==================== TABELA ====================
+function renderPlaylist(lista) {
+  tbody.innerHTML = '';
+
+  lista.forEach(v => {
+    addRow([
+      v.url || '',
+      v.type || 'auto',
+      v.start ?? '',
+      v.end ?? '',
+      v.note || ''
+    ]);
+  });
+}
+
 function renderRow(idx, url, type, start, end, note) {
   const types = ['auto', 'youtube', 'instagram', 'hls', 'mp4'];
 
@@ -881,13 +900,17 @@ async function saveAndStart() {
   videos = readTable();
 
   if (!videos.length) {
-    setInfo('Playlist vazia.', true);
+    setInfo('Playlist vazia. Adicione pelo menos um vídeo com URL.', true);
     return;
   }
 
   isSaving = true;
-  await salvarPlaylistFirebase();
+
+  const ok = await salvarPlaylistFirebase();
+
   isSaving = false;
+
+  if (!ok) return;
 
   buildOrder();
   playCurrent();
