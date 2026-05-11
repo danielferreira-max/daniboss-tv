@@ -232,7 +232,7 @@ tr.active td { border-color: #3b82f6; }
 
 <div class="player-container">
   <div id="stage">
-    <video id="player" controls playsinline autoplay muted></video>
+    <video id="player" controls playsinline autoplay></video>
 
     <iframe
       id="frame"
@@ -252,7 +252,7 @@ tr.active td { border-color: #3b82f6; }
 </div>
 
 <div class="controls">
-  <button id="playBtn" class="primary">▶ Iniciar</button>
+  <button id="playBtn" class="primary">▶ Iniciar / Som</button>
   <button id="prevBtn" class="secondary">⏮ Anterior</button>
   <button id="nextBtn" class="secondary">⏭ Próximo</button>
   <button id="fullscreenBtn" class="secondary">⛶ Fullscreen</button>
@@ -264,7 +264,7 @@ tr.active td { border-color: #3b82f6; }
 
 <div class="warn">
   <strong>📌 Notas:</strong>
-  YouTube/MP4/HLS tentam autoplay sem som. Instagram/Reels carrega como embed e avança automaticamente após o tempo definido.
+  Autoplay começa sem som quando o navegador bloquear som automático. Instagram/Reels carrega como embed e avança pelo tempo definido.
 </div>
 
 <div class="playlist-header">
@@ -312,7 +312,6 @@ firebase.initializeApp(firebaseConfig);
 
 const db = firebase.firestore();
 const auth = firebase.auth();
-
 const PLAYLIST_DOC = db.collection('playlists').doc('principal');
 
 const player = document.getElementById('player');
@@ -359,7 +358,6 @@ async function iniciarAuth() {
 async function carregarPlaylist() {
   try {
     setInfo('☁️ A carregar playlist do Firebase...');
-
     await iniciarAuth();
 
     const doc = await PLAYLIST_DOC.get();
@@ -373,12 +371,10 @@ async function carregarPlaylist() {
     }
 
     renderPlaylist(doc.data().videos);
-
     videos = readTable();
     buildOrder();
 
     setInfo(`✅ Playlist carregada: ${videos.length} vídeos.`);
-
   } catch (error) {
     console.error(error);
     renderPlaylist([]);
@@ -391,7 +387,6 @@ async function carregarPlaylist() {
 async function salvarPlaylist() {
   try {
     isSaving = true;
-
     await iniciarAuth();
 
     const lista = readTable();
@@ -403,10 +398,6 @@ async function salvarPlaylist() {
 
     const confirmacao = await PLAYLIST_DOC.get();
 
-    if (!confirmacao.exists) {
-      throw new Error('Documento não foi criado no Firestore.');
-    }
-
     videos = confirmacao.data().videos || [];
     renderPlaylist(videos);
     buildOrder();
@@ -416,7 +407,6 @@ async function salvarPlaylist() {
 
     currentPos = 0;
     playCurrent();
-
   } catch (error) {
     isSaving = false;
     console.error(error);
@@ -430,11 +420,9 @@ function ouvirPlaylist() {
     if (!snapshot.exists) return;
 
     const data = snapshot.data();
-
     if (!Array.isArray(data.videos)) return;
 
     renderPlaylist(data.videos);
-
     videos = readTable();
     buildOrder();
 
@@ -513,8 +501,8 @@ function readTable() {
 
   tbody.querySelectorAll('tr').forEach(row => {
     const inputs = row.querySelectorAll('input, select');
-
     const url = inputs[0].value.trim();
+
     if (!url) return;
 
     arr.push({
@@ -619,8 +607,7 @@ function startWatchdog() {
     last = now;
 
     if (stuck >= 2) {
-      setInfo('Vídeo travado — próximo...', true);
-      nextVideo();
+      goNext('⚠️ Vídeo travado');
     }
   }, 1000);
 }
@@ -669,7 +656,7 @@ function setupTimeCuts(video) {
       if (player.currentTime >= end) {
         player.removeEventListener('timeupdate', timeUpdateHandler);
         timeUpdateHandler = null;
-        nextVideo();
+        goNext('⏱ Corte fim');
       }
     };
 
@@ -724,20 +711,31 @@ function loadHLSVideo(url) {
 }
 
 async function safePlayVideo() {
-  player.muted = true;
-  player.volume = 1;
   player.autoplay = true;
   player.playsInline = true;
 
   try {
+    player.muted = false;
+    player.volume = 1;
     await player.play();
+
     isPlaying = true;
     playBtn.textContent = '⏸ Pausar';
     startWatchdog();
   } catch (e) {
-    console.warn(e);
-    setInfo('Autoplay bloqueado — próximo...', true);
-    nextVideo();
+    try {
+      player.muted = true;
+      await player.play();
+
+      isPlaying = true;
+      playBtn.textContent = '⏸ Pausar';
+      startWatchdog();
+
+      setInfo('▶️ A tocar sem som. Clique em “Iniciar / Som” para ativar.', true);
+    } catch (err) {
+      console.warn(err);
+      goNext('⚠️ Autoplay bloqueado');
+    }
   }
 }
 
@@ -752,6 +750,26 @@ function getDuration(video, fallback = 10, max = 300) {
   if (!duration || duration < 1 || isNaN(duration)) duration = fallback;
 
   return Math.max(3, Math.min(duration, max));
+}
+
+function goNext(reason = '⏭') {
+  if (!order.length) return;
+
+  clearTimeout(frameTimeout);
+  frameTimeout = null;
+
+  stopWatchdog();
+
+  isLoading = false;
+  isPlaying = false;
+
+  currentPos = (currentPos + 1) % order.length;
+
+  setInfo(`${reason} — próximo...`);
+
+  setTimeout(() => {
+    playCurrent();
+  }, 100);
 }
 
 async function playCurrent() {
@@ -798,7 +816,10 @@ async function playCurrent() {
 
       setInfo(`▶️ YouTube: ${video.note || id}`);
 
-      frameTimeout = setTimeout(nextVideo, getDuration(video, 300, 300) * 1000);
+      frameTimeout = setTimeout(
+        () => goNext('⏱ Tempo terminado'),
+        getDuration(video, 300, 300) * 1000
+      );
     }
 
     else if (type === 'instagram') {
@@ -815,8 +836,7 @@ async function playCurrent() {
       setInfo(`📸 Instagram carregado: ${video.note || instaPath}`);
 
       frameTimeout = setTimeout(() => {
-        setInfo('📸 Instagram temporizado — próximo...');
-        nextVideo();
+        goNext('📸 Instagram temporizado');
       }, getDuration(video, 10, 15) * 1000);
     }
 
@@ -853,9 +873,8 @@ async function playCurrent() {
 
   } catch (e) {
     console.error(e);
-    setInfo(`Erro: ${e.message} — próximo...`, true);
     isLoading = false;
-    nextVideo();
+    goNext('⚠️ Erro ao carregar');
     return;
   }
 
@@ -863,14 +882,15 @@ async function playCurrent() {
 }
 
 function nextVideo() {
-  if (!order.length) return;
-
-  currentPos = (currentPos + 1) % order.length;
-  playCurrent();
+  goNext('⏭');
 }
 
 function prevVideo() {
   if (!order.length) return;
+
+  clearTimeout(frameTimeout);
+  stopWatchdog();
+  isLoading = false;
 
   currentPos = (currentPos - 1 + order.length) % order.length;
   playCurrent();
@@ -887,9 +907,28 @@ function toggleFullscreen() {
 }
 
 playBtn.addEventListener('click', () => {
+  player.muted = false;
+  player.volume = 1;
+
   videos = readTable();
-  buildOrder();
-  playCurrent();
+  if (!videos.length) return;
+
+  if (!order.length) buildOrder();
+
+  if (frame.style.display === 'block') {
+    setInfo('🔊 Som ativado. Em YouTube/Instagram usa também o controlo do iframe.');
+    return;
+  }
+
+  if (player.paused) {
+    player.play();
+    isPlaying = true;
+    playBtn.textContent = '⏸ Pausar';
+    startWatchdog();
+    setInfo('▶️ Reproduzindo com som');
+  } else {
+    setInfo('🔊 Som ativado');
+  }
 });
 
 nextBtn.addEventListener('click', nextVideo);
@@ -904,20 +943,35 @@ shuffleBtn.addEventListener('change', () => {
   setInfo(shuffleBtn.checked ? '🔀 Shuffle ativado' : '📋 Ordem normal');
 });
 
-player.addEventListener('ended', nextVideo);
-player.addEventListener('error', nextVideo);
-player.addEventListener('stalled', nextVideo);
-player.addEventListener('abort', nextVideo);
+player.addEventListener('ended', () => {
+  goNext('🏁 Vídeo terminou');
+});
+
+player.addEventListener('error', () => {
+  goNext('⚠️ Erro no vídeo');
+});
+
+player.addEventListener('stalled', () => {
+  goNext('⚠️ Vídeo travado');
+});
+
+player.addEventListener('abort', () => {
+  goNext('⚠️ Vídeo abortado');
+});
 
 player.addEventListener('waiting', () => {
   setTimeout(() => {
-    if (!player.paused && player.readyState < 3) nextVideo();
+    if (!player.paused && player.readyState < 3) {
+      goNext('⚠️ Vídeo em espera');
+    }
   }, 2000);
 });
 
 player.addEventListener('suspend', () => {
   setTimeout(() => {
-    if (!player.paused && player.readyState < 3) nextVideo();
+    if (!player.paused && player.readyState < 3) {
+      goNext('⚠️ Vídeo suspenso');
+    }
   }, 2000);
 });
 
