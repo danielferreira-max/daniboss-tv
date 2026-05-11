@@ -22,12 +22,7 @@ body {
   color: #e5e5e5;
 }
 
-h2 {
-  color: #fff;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
+h2 { color: #fff; display: flex; align-items: center; gap: 12px; }
 
 .badge {
   font-size: 12px;
@@ -123,6 +118,7 @@ button {
 
 button.primary { background: #3b82f6; color: white; }
 button.secondary { background: #374151; color: #e5e5e5; }
+button.sound { background: #16a34a; color: white; }
 
 label.toggle {
   display: inline-flex;
@@ -256,7 +252,8 @@ tr.active td { border-color: #3b82f6; }
 </div>
 
 <div class="controls">
-  <button id="playBtn" class="primary">▶ Iniciar / Som</button>
+  <button id="playBtn" class="primary">▶ Iniciar</button>
+  <button id="soundBtn" class="sound">🔊 Ativar Som</button>
   <button id="prevBtn" class="secondary">⏮ Anterior</button>
   <button id="nextBtn" class="secondary">⏭ Próximo</button>
   <button id="fullscreenBtn" class="secondary">⛶ Fullscreen</button>
@@ -268,7 +265,7 @@ tr.active td { border-color: #3b82f6; }
 
 <div class="warn">
   <strong>📌 Notas:</strong>
-  YouTube/MP4/HLS vão até ao fim real. Instagram/Reels não permite fim real; usa o campo Fim ou 10 segundos.
+  O navegador pode bloquear som automático. Usa o botão 🔊 Ativar Som uma vez.
 </div>
 
 <div class="playlist-header">
@@ -280,7 +277,7 @@ tr.active td { border-color: #3b82f6; }
 </div>
 
 <p class="hint">
-  💡 Para Instagram/Reels recomenda-se usar Fim = 10 ou 15 segundos.
+  💡 YouTube/MP4/HLS vão até ao fim real. Instagram/Reels usa Fim ou 10 segundos.
 </p>
 
 <div class="table-wrapper">
@@ -322,6 +319,7 @@ const player = document.getElementById('player');
 const frame = document.getElementById('frame');
 const youtubeBox = document.getElementById('youtubeBox');
 const playBtn = document.getElementById('playBtn');
+const soundBtn = document.getElementById('soundBtn');
 const prevBtn = document.getElementById('prevBtn');
 const nextBtn = document.getElementById('nextBtn');
 const saveBtn = document.getElementById('saveBtn');
@@ -340,16 +338,14 @@ let frameTimeout = null;
 let watchdogTimer = null;
 let timeUpdateHandler = null;
 let ytPlayer = null;
-let ytReady = false;
 
 let isPlaying = false;
 let isLoading = false;
 let isSaving = false;
 let isShuffled = true;
+let soundEnabled = false;
 
-window.onYouTubeIframeAPIReady = function () {
-  ytReady = true;
-};
+window.onYouTubeIframeAPIReady = function () {};
 
 function setInfo(message, isError = false) {
   infoDiv.innerHTML = `
@@ -361,9 +357,7 @@ function setInfo(message, isError = false) {
 }
 
 async function iniciarAuth() {
-  if (!auth.currentUser) {
-    await auth.signInAnonymously();
-  }
+  if (!auth.currentUser) await auth.signInAnonymously();
 }
 
 async function carregarPlaylist() {
@@ -451,7 +445,6 @@ function escAttr(str) {
 
 function renderPlaylist(lista) {
   tbody.innerHTML = '';
-
   lista.forEach(v => {
     addRow([
       v.url || '',
@@ -559,7 +552,6 @@ function getInstagramPath(url) {
   if (!m) return null;
 
   const type = m[1].toLowerCase() === 'reels' ? 'reel' : m[1].toLowerCase();
-
   return `${type}/${m[2]}`;
 }
 
@@ -609,6 +601,17 @@ function startWatchdog() {
     if (!isPlaying) return;
 
     const now = player.currentTime || 0;
+    const duration = player.duration || 0;
+
+    const quaseNoFim =
+      duration &&
+      isFinite(duration) &&
+      duration - now <= 1.5;
+
+    if (quaseNoFim) {
+      goNext('🏁 Quase no fim');
+      return;
+    }
 
     const travado =
       player.readyState < 3 ||
@@ -735,7 +738,7 @@ async function safePlayVideo() {
   player.playsInline = true;
 
   try {
-    player.muted = false;
+    player.muted = !soundEnabled;
     player.volume = 1;
     await player.play();
 
@@ -751,7 +754,7 @@ async function safePlayVideo() {
       playBtn.textContent = '⏸ Pausar';
       startWatchdog();
 
-      setInfo('▶️ A tocar sem som. Clique em “Iniciar / Som” para ativar.', true);
+      setInfo('▶️ A tocar sem som. Clique em 🔊 Ativar Som.', true);
     } catch (err) {
       console.warn(err);
       goNext('⚠️ Autoplay bloqueado');
@@ -794,7 +797,7 @@ function goNext(reason = '⏭') {
 
 async function playYouTube(video, id) {
   return new Promise((resolve, reject) => {
-    let start = video.start && video.start > 0 ? video.start : 0;
+    const start = video.start && video.start > 0 ? video.start : 0;
 
     youtubeBox.style.display = 'block';
     player.style.display = 'none';
@@ -806,14 +809,20 @@ async function playYouTube(video, id) {
       videoId: id,
       playerVars: {
         autoplay: 1,
-        mute: 1,
+        mute: soundEnabled ? 0 : 1,
         playsinline: 1,
         rel: 0,
-        start: start
+        start
       },
       events: {
         onReady: (event) => {
-          event.target.mute();
+          if (soundEnabled) {
+            event.target.unMute();
+            event.target.setVolume(100);
+          } else {
+            event.target.mute();
+          }
+
           event.target.playVideo();
 
           isPlaying = true;
@@ -821,7 +830,6 @@ async function playYouTube(video, id) {
 
           setInfo(`▶️ YouTube: ${video.note || id}`);
 
-          // Só corta se existir campo Fim
           if (video.end && video.end > 0) {
             frameTimeout = setTimeout(() => {
               goNext('⏱ Corte fim');
@@ -833,6 +841,17 @@ async function playYouTube(video, id) {
         onStateChange: (event) => {
           if (event.data === YT.PlayerState.ENDED) {
             goNext('🏁 YouTube terminou');
+          }
+
+          if (event.data === YT.PlayerState.PAUSED) {
+            try {
+              const dur = ytPlayer.getDuration();
+              const cur = ytPlayer.getCurrentTime();
+
+              if (dur && dur - cur <= 2) {
+                goNext('🏁 YouTube pausou no fim');
+              }
+            } catch(e) {}
           }
         },
         onError: () => {
@@ -949,6 +968,33 @@ function prevVideo() {
   playCurrent();
 }
 
+function ativarSom() {
+  soundEnabled = true;
+
+  player.muted = false;
+  player.volume = 1;
+
+  if (ytPlayer) {
+    try {
+      ytPlayer.unMute();
+      ytPlayer.setVolume(100);
+      ytPlayer.playVideo();
+      setInfo('🔊 Som ativado no YouTube');
+    } catch(e) {}
+  }
+
+  if (frame.style.display === 'block') {
+    setInfo('🔊 Som ativado quando possível. Instagram pode exigir clique no próprio embed.');
+  }
+
+  if (player.style.display !== 'none') {
+    player.play().catch(() => {});
+    setInfo('🔊 Som ativado');
+  }
+
+  soundBtn.textContent = '🔊 Som Ativo';
+}
+
 function toggleFullscreen() {
   const stage = document.getElementById('stage');
 
@@ -960,39 +1006,23 @@ function toggleFullscreen() {
 }
 
 playBtn.addEventListener('click', () => {
-  player.muted = false;
-  player.volume = 1;
-
-  if (ytPlayer) {
-    try {
-      ytPlayer.unMute();
-      ytPlayer.setVolume(100);
-      setInfo('🔊 Som ativado no YouTube');
-    } catch(e) {}
-    return;
-  }
-
   videos = readTable();
   if (!videos.length) return;
 
   if (!order.length) buildOrder();
 
-  if (frame.style.display === 'block') {
-    setInfo('🔊 Em Instagram usa o controlo do próprio embed.');
-    return;
-  }
-
-  if (player.paused) {
+  if (player.paused && player.style.display !== 'none') {
     player.play();
     isPlaying = true;
     playBtn.textContent = '⏸ Pausar';
     startWatchdog();
-    setInfo('▶️ Reproduzindo com som');
+    setInfo('▶️ Reproduzindo');
   } else {
-    setInfo('🔊 Som ativado');
+    playCurrent();
   }
 });
 
+soundBtn.addEventListener('click', ativarSom);
 nextBtn.addEventListener('click', nextVideo);
 prevBtn.addEventListener('click', prevVideo);
 saveBtn.addEventListener('click', salvarPlaylist);
@@ -1029,12 +1059,31 @@ player.addEventListener('waiting', () => {
   }, 2000);
 });
 
-player.addEventListener('suspend', () => {
-  setTimeout(() => {
-    if (!player.paused && player.readyState < 3) {
-      goNext('⚠️ Vídeo suspenso');
-    }
-  }, 2000);
+player.addEventListener('pause', () => {
+  const duration = player.duration || 0;
+  const current = player.currentTime || 0;
+
+  if (
+    isPlaying &&
+    duration &&
+    isFinite(duration) &&
+    duration - current <= 2
+  ) {
+    goNext('🏁 Pausou no fim');
+  }
+});
+
+player.addEventListener('timeupdate', () => {
+  const duration = player.duration || 0;
+  const current = player.currentTime || 0;
+
+  if (
+    duration &&
+    isFinite(duration) &&
+    duration - current <= 1
+  ) {
+    goNext('🏁 Fim detectado');
+  }
 });
 
 document.addEventListener('fullscreenchange', () => {
