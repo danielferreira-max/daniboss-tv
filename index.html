@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<title>Player com Playlist Editável + Firebase</title>
+<title>Daniboss TV Player</title>
 
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
@@ -65,6 +65,27 @@ h2 {
   border: 0;
   display: none;
 }
+
+.watermark {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  z-index: 9999;
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(6px);
+  color: rgba(255,255,255,0.92);
+  padding: 8px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  border: 1px solid rgba(255,255,255,0.15);
+  text-shadow: 0 0 10px rgba(0,0,0,0.8);
+  pointer-events: none;
+  user-select: none;
+}
+
+.watermark span { color: #3b82f6; }
 
 #info {
   margin: 12px 0;
@@ -208,14 +229,23 @@ tr.active td { border-color: #3b82f6; }
 <body>
 
 <h2>
-  🎬 Player com Playlist
+  🎬 Daniboss TV
   <span class="badge">Firebase · YouTube · Instagram · MP4 · HLS</span>
 </h2>
 
 <div class="player-container">
   <div id="stage">
     <video id="player" controls playsinline muted></video>
-    <iframe id="frame" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>
+
+    <iframe
+      id="frame"
+      allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+      allowfullscreen>
+    </iframe>
+
+    <div class="watermark">
+      DANIBOSS <span>TV</span>
+    </div>
   </div>
 </div>
 
@@ -236,7 +266,7 @@ tr.active td { border-color: #3b82f6; }
 
 <div class="warn">
   <strong>📌 Notas:</strong>
-  A playlist é guardada no Firebase Firestore. Linhas novas só são gravadas se tiverem URL.
+  Esta página não tem vídeos no HTML. A playlist é carregada apenas do Firebase Firestore.
 </div>
 
 <div class="playlist-header">
@@ -311,38 +341,6 @@ let isShuffled = false;
 let isSaving = false;
 let unsubscribeFirebase = null;
 
-// ==================== PLAYLIST COMPLETA ====================
-const INITIAL_PLAYLIST = [
-  ['https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', 'hls', '5', '20', 'demo HLS'],
-  ['https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', 'mp4', '', '', 'demo MP4'],
-
-  ['https://www.youtube.com/watch?v=KSNUugQuweY', 'auto', '', '', 'YouTube'],
-  ['https://www.youtube.com/watch?v=w-15vFFBnCc', 'auto', '', '', 'YouTube'],
-  ['https://www.youtube.com/shorts/eiB1zk97wNk', 'auto', '', '60', 'Short com corte 60s'],
-  ['https://www.instagram.com/reels/DYAP9Vlo0o_/', 'auto', '', '60', 'IG Reel'],
-
-  ['https://www.youtube.com/shorts/xUmYoQpLIuc', 'auto', '', '60', 'Short'],
-  ['https://www.youtube.com/shorts/kYfivrUHGP4', 'auto', '', '60', 'Short'],
-  ['https://www.youtube.com/watch?v=ed2cwHEQIDM', 'auto', '', '', 'TSMC Q1 2026'],
-  ['https://www.youtube.com/watch?v=jfMKdInpsOQ', 'auto', '', '', 'TSM Q1 Earnings'],
-  ['https://www.youtube.com/watch?v=zj78dhYtxAM', 'auto', '', '', 'TSMC 2nm Apr2026'],
-
-  ['https://www.youtube.com/watch?v=6X4c4Q8gY4o', 'auto', '', '', '⚠ ID não verificado: 33 Estratégias'],
-  ['https://www.youtube.com/watch?v=8D_5xY4QJ0A', 'auto', '', '', '⚠ ID não verificado: 5 Dicas Negociar'],
-  ['https://www.youtube.com/watch?v=8f6S8LZg8U4', 'auto', '', '', '⚠ ID não verificado: Psicologia Negociação'],
-  ['https://www.youtube.com/watch?v=2R6yP8x2dJg', 'auto', '', '', '⚠ ID não verificado: 7 Técnicas Persuasão'],
-  ['https://www.youtube.com/watch?v=6gG2ZZU6H5U', 'auto', '', '', '⚠ ID não verificado: Evitar Conflitos'],
-  ['https://www.youtube.com/watch?v=2q1Y0Vg6z4c', 'auto', '', '', '⚠ ID não verificado: Decisão Dados'],
-  ['https://www.youtube.com/watch?v=Q2D1l6yF3mA', 'auto', '', '', '⚠ ID não verificado: Gerenciar Conflitos'],
-
-  ['https://www.instagram.com/reels/DXCOFu7EvA8/', 'auto', '', '60', 'Instagram Reel Novo'],
-  ['https://www.youtube.com/watch?v=PVDBvwOJHyw', 'auto', '', '', 'YouTube Novo 1'],
-  ['https://www.youtube.com/shorts/47k_Dhvgjrg', 'auto', '', '60', 'YouTube Shorts Novo 1'],
-  ['https://www.youtube.com/watch?v=L9VicSX1LM0', 'auto', '', '', 'YouTube Novo 2'],
-  ['https://www.youtube.com/watch?v=Fci4s0CC0mE', 'auto', '', '', 'YouTube Novo 3'],
-  ['https://www.youtube.com/shorts/RfT-Fe4h0CU', 'auto', '', '60', 'YouTube Shorts Novo 2']
-];
-
 // ==================== INFO ====================
 function setInfo(message, isError = false) {
   infoDiv.innerHTML = `
@@ -361,36 +359,6 @@ async function iniciarAuth() {
   }
 }
 
-function playlistArrayToObjects(arr) {
-  return arr.map(item => ({
-    url: item[0],
-    type: item[1] || 'auto',
-    start: item[2] === '' ? null : Number(item[2]),
-    end: item[3] === '' ? null : Number(item[3]),
-    note: item[4] || ''
-  }));
-}
-
-function normalizarUrl(url) {
-  return String(url || '').trim().replace(/\/$/, '');
-}
-
-function juntarSemRemover(salva, padrao) {
-  const resultado = Array.isArray(salva) ? [...salva] : [];
-  const urls = new Set(resultado.map(v => normalizarUrl(v.url)));
-
-  padrao.forEach(v => {
-    const url = normalizarUrl(v.url);
-
-    if (!urls.has(url)) {
-      resultado.push(v);
-      urls.add(url);
-    }
-  });
-
-  return resultado;
-}
-
 async function carregarPlaylistFirebase() {
   try {
     setInfo('☁️ A carregar playlist do Firebase...');
@@ -398,35 +366,28 @@ async function carregarPlaylistFirebase() {
     await iniciarAuth();
 
     const doc = await PLAYLIST_DOC.get();
-    const padrao = playlistArrayToObjects(INITIAL_PLAYLIST);
 
-    let listaFinal = [];
-
-    if (doc.exists && Array.isArray(doc.data().videos)) {
-      listaFinal = juntarSemRemover(doc.data().videos, padrao);
-    } else {
-      listaFinal = padrao;
+    if (!doc.exists || !Array.isArray(doc.data().videos)) {
+      renderPlaylist([]);
+      videos = [];
+      buildOrder();
+      setInfo('📋 Nenhuma playlist encontrada no Firebase. Adicione uma linha e salve.');
+      return;
     }
 
-    renderPlaylist(listaFinal);
+    renderPlaylist(doc.data().videos);
 
     videos = readTable();
     buildOrder();
 
-    await PLAYLIST_DOC.set({
-      videos,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-
-    setInfo(`✅ Playlist carregada: ${videos.length} vídeos.`);
+    setInfo(`✅ Playlist carregada do Firebase: ${videos.length} vídeos.`);
 
   } catch (error) {
     console.error(error);
-    setInfo(`Erro Firebase: ${error.message}`, true);
-
-    renderPlaylist(playlistArrayToObjects(INITIAL_PLAYLIST));
-    videos = readTable();
+    renderPlaylist([]);
+    videos = [];
     buildOrder();
+    setInfo(`Erro Firebase: ${error.message}`, true);
   }
 }
 
@@ -435,10 +396,6 @@ async function salvarPlaylistFirebase() {
     await iniciarAuth();
 
     const lista = readTable();
-
-    if (!lista.length) {
-      throw new Error('Nenhuma linha com URL para salvar.');
-    }
 
     await PLAYLIST_DOC.set({
       videos: lista,
@@ -452,10 +409,6 @@ async function salvarPlaylistFirebase() {
     }
 
     const videosSalvos = confirmacao.data().videos || [];
-
-    if (videosSalvos.length !== lista.length) {
-      throw new Error(`Foram enviados ${lista.length}, mas só existem ${videosSalvos.length} no Firestore.`);
-    }
 
     setInfo(`💾 Playlist salva e confirmada: ${videosSalvos.length} vídeos.`);
     return true;
@@ -477,7 +430,6 @@ function ouvirPlaylistFirebase() {
     if (!snapshot.exists) return;
 
     const data = snapshot.data();
-
     if (!Array.isArray(data.videos)) return;
 
     renderPlaylist(data.videos);
@@ -767,7 +719,7 @@ async function safePlayVideo() {
 
 async function playCurrent() {
   if (!videos.length) {
-    setInfo('Playlist vazia. Adicione vídeos.', true);
+    setInfo('Playlist vazia. Adicione vídeos e salve no Firebase.', true);
     return;
   }
 
@@ -898,11 +850,6 @@ function prevVideo() {
 
 async function saveAndStart() {
   videos = readTable();
-
-  if (!videos.length) {
-    setInfo('Playlist vazia. Adicione pelo menos um vídeo com URL.', true);
-    return;
-  }
 
   isSaving = true;
 
