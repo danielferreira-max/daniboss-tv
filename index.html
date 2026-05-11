@@ -22,7 +22,6 @@ body {
 }
 
 h2 {
-  margin: 0 0 8px 0;
   color: #fff;
   display: flex;
   align-items: center;
@@ -124,15 +123,6 @@ label.toggle {
   font-size: 14px;
 }
 
-.playlist-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin: 24px 0 12px 0;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
 .warn {
   background: #2d2a1a;
   border-left: 4px solid #eab308;
@@ -141,6 +131,15 @@ label.toggle {
   margin: 16px 0;
   border-radius: 8px;
   color: #ccc;
+}
+
+.playlist-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 24px 0 12px 0;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .hint {
@@ -262,7 +261,7 @@ tr.active td { border-color: #3b82f6; }
 
 <div class="warn">
   <strong>📌 Notas:</strong>
-  Autoplay começa sem som por regras do navegador. Para som, ativa no player depois do início.
+  Autoplay começa sem som por regra do navegador. Se o vídeo terminar, travar ou ficar parado, passa logo ao próximo.
 </div>
 
 <div class="playlist-header">
@@ -295,7 +294,6 @@ tr.active td { border-color: #3b82f6; }
 </div>
 
 <script>
-// ==================== FIREBASE ====================
 const firebaseConfig = {
   apiKey: "AIzaSyANZgI5dhvLAvnKd3DgXMnDqI9CF2rBZEA",
   authDomain: "daniboss-tv.firebaseapp.com",
@@ -315,7 +313,6 @@ const auth = firebase.auth();
 const PLAYLIST_DOC = db.collection('playlists').doc('principal');
 const CHANNEL_DOC = db.collection('channel').doc('daniboss-tv');
 
-// ==================== DOM ====================
 const player = document.getElementById('player');
 const frame = document.getElementById('frame');
 const playBtn = document.getElementById('playBtn');
@@ -327,7 +324,6 @@ const tbody = document.querySelector('#playlistTable tbody');
 const addRowBtn = document.getElementById('addRowBtn');
 const saveBtn = document.getElementById('saveBtn');
 
-// ==================== ESTADO ====================
 let videos = [];
 let order = [];
 let currentPos = 0;
@@ -348,8 +344,8 @@ let lastVideoTime = 0;
 let stalledSeconds = 0;
 
 let localChannelUpdate = false;
+let isChangingVideo = false;
 
-// ==================== INFO ====================
 function setInfo(message, isError = false) {
   infoDiv.innerHTML = `
     <span class="status-dot ${isPlaying ? 'status-playing' : 'status-paused'}"></span>
@@ -360,14 +356,12 @@ function setInfo(message, isError = false) {
   console.log(message);
 }
 
-// ==================== AUTH ====================
 async function iniciarAuth() {
   if (!auth.currentUser) {
     await auth.signInAnonymously();
   }
 }
 
-// ==================== FIREBASE PLAYLIST ====================
 async function carregarPlaylistFirebase() {
   try {
     setInfo('☁️ A carregar playlist do Firebase...');
@@ -393,11 +387,9 @@ async function carregarPlaylistFirebase() {
 
   } catch (error) {
     console.error(error);
-
     renderPlaylist([]);
     videos = [];
     buildOrder();
-
     setInfo(`Erro Firebase: ${error.message}`, true);
   }
 }
@@ -454,7 +446,6 @@ function ouvirPlaylistFirebase() {
   });
 }
 
-// ==================== CANAL TV ====================
 async function atualizarCanalTV() {
   if (!order.length) return;
 
@@ -500,7 +491,6 @@ function ouvirCanalTV() {
   });
 }
 
-// ==================== UTILS ====================
 function detectType(url) {
   if (!url) return 'mp4';
 
@@ -548,7 +538,6 @@ function escAttr(str) {
     .replace(/>/g, '&gt;');
 }
 
-// ==================== TABELA ====================
 function renderPlaylist(lista) {
   tbody.innerHTML = '';
 
@@ -628,7 +617,6 @@ function readTable() {
   return newVideos;
 }
 
-// ==================== WATCHDOG ====================
 function startWatchdog() {
   stopWatchdog();
 
@@ -641,7 +629,12 @@ function startWatchdog() {
 
     const current = player.currentTime || 0;
 
-    if (!player.paused && Math.abs(current - lastVideoTime) < 0.2) {
+    const parado =
+      player.paused ||
+      player.readyState < 3 ||
+      Math.abs(current - lastVideoTime) < 0.15;
+
+    if (parado) {
       stalledSeconds++;
     } else {
       stalledSeconds = 0;
@@ -649,8 +642,8 @@ function startWatchdog() {
 
     lastVideoTime = current;
 
-    if (stalledSeconds >= 5) {
-      setInfo('Vídeo parado há mais de 5s — próximo...', true);
+    if (stalledSeconds >= 2) {
+      setInfo('Vídeo parado — próximo...', true);
       nextVideo();
     }
   }, 1000);
@@ -665,7 +658,6 @@ function stopWatchdog() {
   stalledSeconds = 0;
 }
 
-// ==================== PLAYER ====================
 function clearPlayback() {
   stopWatchdog();
 
@@ -755,17 +747,11 @@ function loadHLSVideo(url) {
     if (!Hls.isSupported()) {
       if (player.canPlayType('application/vnd.apple.mpegURL')) {
         player.src = url;
-
         player.addEventListener('loadedmetadata', resolve, { once: true });
-
-        player.addEventListener('error', () => {
-          reject(new Error('Erro HLS nativo'));
-        }, { once: true });
-
+        player.addEventListener('error', () => reject(new Error('Erro HLS nativo')), { once: true });
       } else {
         reject(new Error('HLS não suportado neste navegador'));
       }
-
       return;
     }
 
@@ -814,10 +800,14 @@ async function safePlayVideo() {
 }
 
 async function playCurrent() {
+  if (isChangingVideo) return;
+
   if (!videos.length) {
     setInfo('Playlist vazia. Adiciona vídeos e salva.', true);
     return;
   }
+
+  isChangingVideo = true;
 
   if (!order.length || shuffleBtn.checked !== isShuffled) {
     buildOrder();
@@ -836,10 +826,7 @@ async function playCurrent() {
   try {
     if (resolvedType === 'youtube') {
       const youtubeId = getYouTubeId(video.url);
-
-      if (!youtubeId) {
-        throw new Error('ID YouTube inválido');
-      }
+      if (!youtubeId) throw new Error('ID YouTube inválido');
 
       const params = new URLSearchParams({
         autoplay: '1',
@@ -849,13 +836,8 @@ async function playCurrent() {
         enablejsapi: '1'
       });
 
-      if (video.start && video.start > 0) {
-        params.set('start', video.start);
-      }
-
-      if (video.end && video.end > 0) {
-        params.set('end', video.end);
-      }
+      if (video.start && video.start > 0) params.set('start', video.start);
+      if (video.end && video.end > 0) params.set('end', video.end);
 
       frame.src = `https://www.youtube.com/embed/${youtubeId}?${params.toString()}`;
       frame.style.display = 'block';
@@ -868,23 +850,14 @@ async function playCurrent() {
 
       let duration = 300;
 
-      if (video.end && video.start) {
-        duration = video.end - video.start;
-      } else if (video.end) {
-        duration = video.end;
-      }
+      if (video.end && video.start) duration = video.end - video.start;
+      else if (video.end) duration = video.end;
 
-      frameTimeout = setTimeout(
-        nextVideo,
-        Math.min(duration * 1000 + 5000, 300000)
-      );
+      frameTimeout = setTimeout(nextVideo, Math.min(duration * 1000 + 5000, 300000));
 
     } else if (resolvedType === 'instagram') {
       const instaPath = getInstagramPath(video.url);
-
-      if (!instaPath) {
-        throw new Error('URL Instagram inválida');
-      }
+      if (!instaPath) throw new Error('URL Instagram inválida');
 
       frame.src = `https://www.instagram.com/${instaPath}/embed`;
       frame.style.display = 'block';
@@ -897,24 +870,15 @@ async function playCurrent() {
 
       let duration = 60;
 
-      if (video.end && video.start) {
-        duration = video.end - video.start;
-      } else if (video.end) {
-        duration = video.end;
-      }
+      if (video.end && video.start) duration = video.end - video.start;
+      else if (video.end) duration = video.end;
 
-      frameTimeout = setTimeout(
-        nextVideo,
-        Math.min(duration * 1000 + 5000, 180000)
-      );
+      frameTimeout = setTimeout(nextVideo, Math.min(duration * 1000 + 5000, 180000));
 
     } else if (resolvedType === 'hls') {
       await loadHLSVideo(video.url);
       setupTimeCuts(video);
       await safePlayVideo();
-
-      isPlaying = true;
-      playBtn.textContent = '⏸ Pausar';
 
       startWatchdog();
 
@@ -924,9 +888,7 @@ async function playCurrent() {
       player.src = video.url;
 
       await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Timeout MP4'));
-        }, 15000);
+        const timeout = setTimeout(() => reject(new Error('Timeout MP4')), 15000);
 
         player.addEventListener('loadedmetadata', () => {
           clearTimeout(timeout);
@@ -942,9 +904,6 @@ async function playCurrent() {
       setupTimeCuts(video);
       await safePlayVideo();
 
-      isPlaying = true;
-      playBtn.textContent = '⏸ Pausar';
-
       startWatchdog();
 
       setInfo(`🎬 MP4: ${video.note || video.url}`);
@@ -956,11 +915,14 @@ async function playCurrent() {
 
     setInfo(`Erro [${resolvedType}]: ${error.message} — próximo...`, true);
 
-    setTimeout(nextVideo, 1000);
+    isChangingVideo = false;
+    nextVideo();
+    return;
   }
+
+  isChangingVideo = false;
 }
 
-// ==================== CONTROLOS ====================
 async function nextVideo() {
   if (!videos.length || !order.length) return;
 
@@ -1034,7 +996,6 @@ function togglePlayPause() {
   }
 }
 
-// ==================== EVENTOS ====================
 playBtn.addEventListener('click', togglePlayPause);
 nextBtn.addEventListener('click', nextVideo);
 prevBtn.addEventListener('click', prevVideo);
@@ -1049,31 +1010,43 @@ shuffleBtn.addEventListener('change', async () => {
 addRowBtn.addEventListener('click', () => addRow());
 saveBtn.addEventListener('click', saveAndStart);
 
-player.addEventListener('ended', nextVideo);
+player.addEventListener('ended', () => {
+  setInfo('🏁 Vídeo terminou — próximo...');
+  nextVideo();
+});
 
 player.addEventListener('error', () => {
   const errMsg = player.error?.message || 'erro desconhecido';
-
   setInfo(`Erro vídeo: ${errMsg} — próximo...`, true);
-
-  setTimeout(nextVideo, 1000);
+  nextVideo();
 });
 
 player.addEventListener('stalled', () => {
   setInfo('Vídeo travado — próximo...', true);
-  setTimeout(nextVideo, 1000);
+  nextVideo();
+});
+
+player.addEventListener('abort', () => {
+  setInfo('Vídeo abortado — próximo...', true);
+  nextVideo();
+});
+
+player.addEventListener('emptied', () => {
+  if (isPlaying) {
+    setInfo('Vídeo vazio — próximo...', true);
+    nextVideo();
+  }
 });
 
 player.addEventListener('waiting', () => {
   setTimeout(() => {
     if (!player.paused && player.readyState < 3) {
-      setInfo('Vídeo em espera há demasiado tempo — próximo...', true);
+      setInfo('Vídeo em espera — próximo...', true);
       nextVideo();
     }
-  }, 5000);
+  }, 2000);
 });
 
-// ==================== INICIALIZAÇÃO ====================
 carregarPlaylistFirebase().then(async () => {
   ouvirPlaylistFirebase();
   ouvirCanalTV();
