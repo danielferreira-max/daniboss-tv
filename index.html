@@ -1,513 +1,685 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="utf-8">
-    <title>DANIBOSS TV</title>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    <style>
-        * { box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            margin: 0; background: #050505; color: #e5e5e5;
-            display: flex; flex-direction: column; height: 100vh; overflow: hidden;
-        }
-
-        .main-layout { display: flex; flex: 1; overflow: hidden; }
-        .player-section { flex: 3; display: flex; flex-direction: column; background: #000; overflow-y: auto; }
-        
-        #stage { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; flex-shrink: 0; }
-        #player, #frame { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
-
-        /* Marca d'água com logo no canto superior */
-        .watermark {
-            position: fixed;
-            top: 15px;
-            left: 15px;
-            z-index: 9999;
-            opacity: 0.7;
-            pointer-events: none;
-            font-size: 18px;
-            font-weight: bold;
-            background: rgba(0,0,0,0.5);
-            padding: 8px 16px;
-            border-radius: 30px;
-            backdrop-filter: blur(5px);
-            font-family: 'Segoe UI', sans-serif;
-            letter-spacing: 2px;
-            color: #3b82f6;
-            text-shadow: 0 0 10px rgba(59,130,246,0.5);
-        }
-        
-        .watermark span {
-            font-size: 20px;
-            margin-right: 5px;
-        }
-
-        .ui-footer { padding: 20px; background: #0a0a0a; border-top: 1px solid #222; }
-        .btn-sound {
-            padding: 12px 24px; background: #2563eb; color: white; border: none;
-            border-radius: 6px; font-weight: bold; cursor: pointer;
-        }
-        .btn-sound:hover { background: #1d4ed8; }
-
-        /* PAINEL ADMIN */
-        #adminPanel {
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: #1a1a1a; padding: 25px; border-radius: 12px;
-            z-index: 10000; display: none; width: 90%; max-width: 800px;
-            box-shadow: 0 0 30px rgba(0,0,0,0.8); border: 1px solid #333;
-            max-height: 90vh; overflow-y: auto;
-        }
-        #adminPanel h2 { margin-top: 0; color: #3b82f6; }
-        .admin-input { width: 100%; padding: 10px; margin: 5px 0; background: #000; border: 1px solid #444; color: white; border-radius: 6px; }
-        .admin-row { display: flex; gap: 10px; margin: 10px 0; flex-wrap: wrap; }
-        .admin-row input { flex: 1; }
-        
-        .video-list { max-height: 300px; overflow-y: auto; margin: 15px 0; border: 1px solid #333; border-radius: 8px; }
-        .video-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #222; font-size: 13px; gap: 10px; flex-wrap: wrap; }
-        .video-item span { flex: 1; }
-        .video-item small { color: #888; font-size: 10px; }
-        .btn-del { background: #dc2626; color: white; padding: 4px 12px; border-radius: 4px; cursor: pointer; border: none; font-size: 12px; }
-        .btn-del:hover { background: #b91c1c; }
-        .btn-edit { background: #eab308; color: #1a1a1a; padding: 4px 12px; border-radius: 4px; cursor: pointer; border: none; font-size: 12px; margin-right: 5px; }
-        .btn-edit:hover { background: #ca8a04; }
-        .btn-close { background: #444; color: white; padding: 10px; border: none; cursor: pointer; width: 100%; margin-top: 10px; border-radius: 6px; }
-
-        .prog-table { width: 100%; margin-top: 20px; border-collapse: collapse; }
-        .prog-table td { padding: 10px; border-top: 1px solid #222; }
-        .active-row { color: #3b82f6; font-weight: bold; background: rgba(59, 130, 246, 0.1); }
-        .active-row td { border-top-color: #3b82f6; }
-        
-        .admin-trigger { position: fixed; bottom: 10px; right: 10px; opacity: 0.3; cursor: pointer; font-size: 10px; background: #1a1a1a; padding: 6px 12px; border-radius: 20px; z-index: 9999; }
-        .admin-trigger:hover { opacity: 1; }
-        
-        #info { color: #22c55e; margin-bottom: 10px; font-family: monospace; }
-        
-        .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; animation: pulse 1.5s infinite; }
-        .status-live { background: #ef4444; box-shadow: 0 0 5px #ef4444; }
-        @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
-    </style>
+<meta charset="utf-8">
+<title>Player com Playlist Editável + Shuffle</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    max-width: 1300px;
+    margin: 20px auto;
+    padding: 0 20px;
+    background: #0a0a0a;
+    color: #e5e5e5;
+  }
+  
+  h2 { margin: 0 0 8px 0; color: #fff; display: flex; align-items: center; gap: 12px; }
+  .badge { font-size: 12px; background: #2e2e2e; padding: 4px 12px; border-radius: 20px; font-weight: normal; }
+  
+  .player-container {
+    background: #000;
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  #stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #000;
+  }
+  #player {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  #frame {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: none;
+  }
+  
+  #info {
+    margin: 12px 0;
+    padding: 10px 16px;
+    background: #1a1a1a;
+    border-radius: 10px;
+    font-size: 13px;
+    color: #aaa;
+    font-family: monospace;
+    border-left: 3px solid #3b82f6;
+  }
+  
+  .controls {
+    margin: 15px 0;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  button {
+    padding: 8px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.2s ease;
+  }
+  button.primary { background: #3b82f6; color: white; }
+  button.primary:hover { background: #2563eb; transform: scale(1.02); }
+  button.secondary { background: #374151; color: #e5e5e5; }
+  button.secondary:hover { background: #4b5563; }
+  button.danger { background: #ef4444; color: white; }
+  button.danger:hover { background: #dc2626; }
+  
+  label.toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #1a1a1a;
+    padding: 6px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  label.toggle input { width: 18px; height: 18px; cursor: pointer; }
+  
+  .playlist-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 24px 0 12px 0;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .playlist-header h3 { margin: 0; }
+  
+  .hint {
+    font-size: 12px;
+    color: #888;
+    margin: 8px 0;
+  }
+  .warn {
+    background: #2d2a1a;
+    border-left: 4px solid #eab308;
+    padding: 10px 16px;
+    font-size: 12px;
+    margin: 16px 0;
+    border-radius: 8px;
+    color: #ccc;
+  }
+  
+  .table-wrapper {
+    max-height: 450px;
+    overflow-y: auto;
+    border-radius: 12px;
+    border: 1px solid #2a2a2a;
+  }
+  
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    background: #111;
+  }
+  th, td {
+    border: 1px solid #2a2a2a;
+    padding: 8px 6px;
+    vertical-align: middle;
+  }
+  th {
+    background: #1e1e1e;
+    color: #ddd;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  td input, td select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 8px;
+    border: 1px solid #3a3a3a;
+    border-radius: 6px;
+    background: #1a1a1a;
+    color: #e5e5e5;
+    font-size: 12px;
+  }
+  td input:focus, td select:focus { outline: none; border-color: #3b82f6; }
+  td.url input { font-family: monospace; font-size: 11px; }
+  td.num { width: 85px; }
+  td.type { width: 100px; }
+  td.actions { width: 55px; text-align: center; }
+  .row-btn {
+    background: #dc2626;
+    padding: 4px 8px;
+    font-size: 12px;
+    border-radius: 6px;
+    color: white;
+    border: none;
+    cursor: pointer;
+  }
+  .row-btn:hover { background: #b91c1c; }
+  
+  tr.active {
+    background: #1e3a5f;
+  }
+  tr.active td {
+    border-color: #3b82f6;
+  }
+  
+  .status-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+  }
+  .status-playing { background: #22c55e; box-shadow: 0 0 5px #22c55e; }
+  .status-paused { background: #6b7280; }
+  
+  .error-log {
+    background: #2a1a1a;
+    border-left: 4px solid #ef4444;
+    padding: 8px 12px;
+    margin-top: 10px;
+    font-size: 11px;
+    color: #f87171;
+    display: none;
+  }
+</style>
 </head>
 <body>
 
-<!-- Marca d'água com logo -->
-<div class="watermark">
-    <span>🎬</span> DANIBOSS TV
+<h2>🎬 Player com Playlist <span class="badge">YouTube · Instagram · MP4 · HLS</span></h2>
+
+<div class="player-container">
+  <div id="stage">
+    <video id="player" controls playsinline></video>
+    <iframe id="frame" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>
+  </div>
 </div>
 
-<div class="main-layout">
-    <div class="player-section">
-        <div id="stage">
-            <video id="player" playsinline muted></video>
-            <iframe id="frame" allow="autoplay; encrypted-media; fullscreen"></iframe>
-        </div>
-        
-        <div class="ui-footer">
-            <div id="info"><span class="status-dot status-live"></span> Sincronizando...</div>
-            <button class="btn-sound" id="soundBtn" onclick="enableAudio()">🔊 ATIVAR SOM</button>
-            
-            <table class="prog-table">
-                <tbody id="progBody"></tbody>
-            </table>
-        </div>
-    </div>
+<div id="info">
+  <span class="status-dot status-paused"></span>
+  Pronto — clique ▶ Iniciar
 </div>
 
-<div id="adminPanel">
-    <h2>🎬 GESTOR DANIBOSS TV</h2>
-    <p style="font-size: 12px; color: #888;">Adicione, edite ou remova vídeos da playlist</p>
-    
-    <div class="admin-row">
-        <input type="text" id="newTitle" class="admin-input" placeholder="Título do Vídeo">
-        <input type="text" id="newUrl" class="admin-input" placeholder="URL (YouTube, MP4 ou .m3u8)">
-    </div>
-    <div class="admin-row">
-        <input type="number" id="newStart" class="admin-input" placeholder="Início (segundos)" value="0">
-        <input type="number" id="newEnd" class="admin-input" placeholder="Fim (segundos) (0=completo)" value="0">
-    </div>
-    <button onclick="addVideo()" style="width:100%; padding: 12px; background: #22c55e; border: none; color: white; font-weight: bold; cursor:pointer; border-radius: 6px; margin-bottom: 15px;">+ ADICIONAR À PLAYLIST</button>
-    
-    <div class="video-list" id="adminVideoList"></div>
-    
-    <button class="btn-close" onclick="toggleAdmin()">FECHAR GESTOR (ESC)</button>
+<div class="controls">
+  <button id="playBtn" class="primary">▶ Iniciar</button>
+  <button id="prevBtn" class="secondary">⏮ Anterior</button>
+  <button id="nextBtn" class="secondary">⏭ Próximo</button>
+  <label class="toggle">
+    <input type="checkbox" id="shuffleBtn"> 🔀 Shuffle
+  </label>
 </div>
 
-<div class="admin-trigger" onclick="toggleAdmin()">🔧 ADMIN (Pressione A)</div>
+<div class="warn">
+  <strong>📌 Notas:</strong> YouTube/Instagram tocam via iframe. Recorte Início/Fim funciona em HLS/MP4/YouTube. 
+  Linhas com ⚠️ têm IDs não verificados — se derem erro, a fonte é inválida (não substitui silenciosamente).
+</div>
+
+<div class="playlist-header">
+  <h3>📋 Playlist (editável, sem limite de linhas)</h3>
+  <div>
+    <button id="addRowBtn" class="secondary">➕ Nova Linha</button>
+    <button id="saveBtn" class="primary">💾 Salvar & Reiniciar</button>
+  </div>
+</div>
+<p class="hint">💡 Início/Fim em <strong>segundos</strong>. Vazio = vídeo inteiro. Tipo "auto" detecta automaticamente pela URL.</p>
+
+<div class="table-wrapper">
+  <table id="playlistTable">
+    <thead>
+      <tr><th style="width:40px">#</th><th>URL</th><th style="width:100px">Tipo</th><th style="width:80px">Início</th><th style="width:80px">Fim</th><th>Nota</th><th style="width:50px"></th</th>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
 
 <script>
-// ==================== PLAYLIST COMPLETA (VÍDEOS ORIGINAIS) ====================
-const DEFAULT_PLAYLIST = [
-    { title: "📡 Demo HLS (5-20s)", url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", start: 5, end: 20 },
-    { title: "🐰 Demo MP4 - Big Buck Bunny", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", start: 0, end: 0 },
-    { title: "🎬 YouTube - Vídeo 1", url: "https://www.youtube.com/watch?v=KSNUugQuweY", start: 0, end: 0 },
-    { title: "🎬 YouTube - Vídeo 2", url: "https://www.youtube.com/watch?v=w-15vFFBnCc", start: 0, end: 0 },
-    { title: "📱 YouTube Shorts (corte 60s)", url: "https://www.youtube.com/shorts/eiB1zk97wNk", start: 0, end: 60 },
-    { title: "📸 Instagram Reel", url: "https://www.instagram.com/reels/DYAP9Vlo0o_/", start: 0, end: 60 },
-    { title: "📱 YouTube Shorts 2", url: "https://www.youtube.com/shorts/xUmYoQpLIuc", start: 0, end: 60 },
-    { title: "📱 YouTube Shorts 3", url: "https://www.youtube.com/shorts/kYfivrUHGP4", start: 0, end: 60 },
-    { title: "🏭 TSMC Q1 2026", url: "https://www.youtube.com/watch?v=ed2cwHEQIDM", start: 0, end: 0 },
-    { title: "📊 TSM Q1 Earnings", url: "https://www.youtube.com/watch?v=jfMKdInpsOQ", start: 0, end: 0 },
-    { title: "🔬 TSMC 2nm Apr2026", url: "https://www.youtube.com/watch?v=zj78dhYtxAM", start: 0, end: 0 },
-    { title: "⚠️ 33 Estratégias (não verificado)", url: "https://www.youtube.com/watch?v=6X4c4Q8gY4o", start: 0, end: 0 },
-    { title: "⚠️ 5 Dicas Negociar (não verificado)", url: "https://www.youtube.com/watch?v=8D_5xY4QJ0A", start: 0, end: 0 },
-    { title: "⚠️ Psicologia Negociação (não verificado)", url: "https://www.youtube.com/watch?v=8f6S8LZg8U4", start: 0, end: 0 },
-    { title: "⚠️ 7 Técnicas Persuasão (não verificado)", url: "https://www.youtube.com/watch?v=2R6yP8x2dJg", start: 0, end: 0 },
-    { title: "⚠️ Evitar Conflitos (não verificado)", url: "https://www.youtube.com/watch?v=6gG2ZZU6H5U", start: 0, end: 0 },
-    { title: "⚠️ Decisão Dados (não verificado)", url: "https://www.youtube.com/watch?v=2q1Y0Vg6z4c", start: 0, end: 0 },
-    { title: "⚠️ Gerenciar Conflitos (não verificado)", url: "https://www.youtube.com/watch?v=Q2D1l6yF3mA", start: 0, end: 0 }
+// ==================== DOM Elements ====================
+const player = document.getElementById('player');
+const frame = document.getElementById('frame');
+const playBtn = document.getElementById('playBtn');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const shuffleBtn = document.getElementById('shuffleBtn');
+const infoDiv = document.getElementById('info');
+const tbody = document.querySelector('#playlistTable tbody');
+const addRowBtn = document.getElementById('addRowBtn');
+const saveBtn = document.getElementById('saveBtn');
+
+// ==================== Estado Global ====================
+let videos = [];
+let order = [];
+let currentPos = 0;
+let activeHls = null;
+let timeUpdateHandler = null;
+let frameTimeout = null;
+let isPlaying = false;
+let isShuffled = false;
+
+// ==================== Playlist Original (Mantida completa) ====================
+const INITIAL_PLAYLIST = [
+  ['https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', 'hls', '5', '20', 'demo HLS (5-20s)'],
+  ['https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', 'mp4', '', '', 'demo MP4'],
+  ['https://www.youtube.com/watch?v=KSNUugQuweY', 'auto', '', '', 'YouTube'],
+  ['https://www.youtube.com/watch?v=w-15vFFBnCc', 'auto', '', '', 'YouTube'],
+  ['https://www.youtube.com/shorts/eiB1zk97wNk', 'auto', '', '60', 'Short com corte 60s'],
+  ['https://www.instagram.com/reels/DYAP9Vlo0o_/', 'auto', '', '60', 'IG Reel (pode bloquear)'],
+  ['https://www.youtube.com/shorts/xUmYoQpLIuc', 'auto', '', '60', 'Short'],
+  ['https://www.youtube.com/shorts/kYfivrUHGP4', 'auto', '', '60', 'Short'],
+  ['https://www.youtube.com/watch?v=ed2cwHEQIDM', 'auto', '', '', 'TSMC Q1 2026 (3rd-party)'],
+  ['https://www.youtube.com/watch?v=jfMKdInpsOQ', 'auto', '', '', 'TSM Q1 Earnings (3rd-party)'],
+  ['https://www.youtube.com/watch?v=zj78dhYtxAM', 'auto', '', '', 'TSMC 2nm Apr2026 (3rd-party)'],
+  ['https://www.youtube.com/watch?v=6X4c4Q8gY4o', 'auto', '', '', '⚠ ID não verificado: 33 Estratégias'],
+  ['https://www.youtube.com/watch?v=8D_5xY4QJ0A', 'auto', '', '', '⚠ ID não verificado: 5 Dicas Negociar'],
+  ['https://www.youtube.com/watch?v=8f6S8LZg8U4', 'auto', '', '', '⚠ ID não verificado: Psicologia Negociação'],
+  ['https://www.youtube.com/watch?v=2R6yP8x2dJg', 'auto', '', '', '⚠ ID não verificado: 7 Técnicas Persuasão'],
+  ['https://www.youtube.com/watch?v=6gG2ZZU6H5U', 'auto', '', '', '⚠ ID não verificado: Evitar Conflitos'],
+  ['https://www.youtube.com/watch?v=2q1Y0Vg6z4c', 'auto', '', '', '⚠ ID não verificado: Decisão Dados'],
+  ['https://www.youtube.com/watch?v=Q2D1l6yF3mA', 'auto', '', '', '⚠ ID não verificado: Gerenciar Conflitos'],
 ];
 
-// ==================== ESTADO GLOBAL ====================
-let playlist = [];
-let ultimoIndice = -1;
-let audioAtivado = false;
-let activeHls = null;
-let tempoTotal = 0;
-
-// Carregar playlist do localStorage ou usar a padrão
-function loadPlaylist() {
-    const saved = localStorage.getItem('daniboss_playlist');
-    if (saved) {
-        try {
-            playlist = JSON.parse(saved);
-            if (playlist.length === 0) playlist = [...DEFAULT_PLAYLIST];
-        } catch(e) {
-            playlist = [...DEFAULT_PLAYLIST];
-        }
-    } else {
-        playlist = [...DEFAULT_PLAYLIST];
-    }
-    calcularTempoTotal();
-    renderAdminList();
-    renderProgTable();
-}
-
-function calcularTempoTotal() {
-    tempoTotal = 0;
-    playlist.forEach(v => {
-        let duracao;
-        if (v.end && v.end > 0) {
-            duracao = v.end - (v.start || 0);
-        } else {
-            duracao = 300;
-        }
-        tempoTotal += duracao > 0 ? duracao : 300;
-    });
-    if (tempoTotal <= 0) tempoTotal = 1;
-}
-
-function savePlaylist() {
-    localStorage.setItem('daniboss_playlist', JSON.stringify(playlist));
-    calcularTempoTotal();
-    renderAdminList();
-    renderProgTable();
-}
-
-function addVideo() {
-    const title = document.getElementById('newTitle').value.trim();
-    const url = document.getElementById('newUrl').value.trim();
-    const start = parseInt(document.getElementById('newStart').value) || 0;
-    let end = parseInt(document.getElementById('newEnd').value) || 0;
-
-    if (title && url) {
-        playlist.push({ title, url, start, end });
-        savePlaylist();
-        document.getElementById('newTitle').value = '';
-        document.getElementById('newUrl').value = '';
-        document.getElementById('newStart').value = '0';
-        document.getElementById('newEnd').value = '0';
-        alert("✅ Vídeo adicionado com sucesso!");
-    } else {
-        alert("❌ Preencha título e URL!");
-    }
-}
-
-function removeVideo(index) {
-    if (confirm(`Remover "${playlist[index].title}" da playlist?`)) {
-        playlist.splice(index, 1);
-        savePlaylist();
-    }
-}
-
-function editVideo(index) {
-    const video = playlist[index];
-    const newTitle = prompt("Editar título:", video.title);
-    if (newTitle !== null && newTitle !== "") video.title = newTitle;
-    
-    const newUrl = prompt("Editar URL:", video.url);
-    if (newUrl !== null && newUrl !== "") video.url = newUrl;
-    
-    const newStart = parseInt(prompt("Início (segundos):", video.start)) || 0;
-    video.start = newStart;
-    
-    const newEnd = parseInt(prompt("Fim (segundos) (0 = vídeo inteiro):", video.end)) || 0;
-    video.end = newEnd;
-    
-    savePlaylist();
-}
-
-function toggleAdmin() {
-    const panel = document.getElementById('adminPanel');
-    panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
-    renderAdminList();
-}
-
-function renderAdminList() {
-    const list = document.getElementById('adminVideoList');
-    if (playlist.length === 0) {
-        list.innerHTML = '<div style="padding: 20px; text-align: center; color: #888;">Nenhum vídeo na playlist</div>';
-        return;
-    }
-    
-    list.innerHTML = playlist.map((v, i) => `
-        <div class="video-item">
-            <span><strong>${v.title}</strong><br><small>${v.url.substring(0, 50)}... | ${v.start > 0 ? v.start + 's' : 'início'} → ${v.end > 0 ? v.end + 's' : 'completo'}</small></span>
-            <div>
-                <button class="btn-edit" onclick="editVideo(${i})">✏️</button>
-                <button class="btn-del" onclick="removeVideo(${i})">🗑️</button>
-            </div>
-        </div>
-    `).join('');
-}
-
-function renderProgTable() {
-    const progBody = document.getElementById('progBody');
-    if (playlist.length === 0) {
-        progBody.innerHTML = '<tr><td style="padding:20px; text-align:center;">Nenhum vídeo na playlist</td>'个';
-        return;
-    }
-    
-    progBody.innerHTML = playlist.map((v, i) => `
-        <tr id="prog-${i}">
-            <td>${i+1}. ${v.title} <span style="color:#666; font-size:11px;">${v.start > 0 ? v.start + 's' : 'início'} → ${v.end > 0 ? v.end + 's' : 'completo'}</span></td>
-        </tr>
-    `).join('');
-}
-
-function enableAudio() {
-    audioAtivado = true;
-    const playerEl = document.getElementById('player');
-    playerEl.muted = false;
-    document.getElementById('soundBtn').style.display = 'none';
-    document.getElementById('info').innerHTML = '<span class="status-dot status-live"></span> 🔈 ÁUDIO ATIVADO';
-    setTimeout(() => {
-        ultimoIndice = -1;
-        updateLiveStream();
-    }, 100);
+// ==================== Utilitários ====================
+function setInfo(message, isError = false) {
+  const dotSpan = infoDiv.querySelector('.status-dot');
+  if (isError) {
+    infoDiv.innerHTML = `<span class="status-dot status-paused"></span> ⚠️ ${message}`;
+    infoDiv.style.borderLeftColor = '#ef4444';
+  } else {
+    infoDiv.innerHTML = `<span class="status-dot ${isPlaying ? 'status-playing' : 'status-paused'}"></span> ${message}`;
+    infoDiv.style.borderLeftColor = '#3b82f6';
+  }
+  console.log(message);
 }
 
 function detectType(url) {
-    const u = url.toLowerCase();
-    if (u.includes('youtube.com') || u.includes('youtu.be')) return 'youtube';
-    if (u.includes('instagram.com')) return 'instagram';
-    if (u.includes('.m3u8')) return 'hls';
-    return 'mp4';
+  if (!url) return 'mp4';
+  const u = url.toLowerCase();
+  if (u.includes('youtube.com') || u.includes('youtu.be')) return 'youtube';
+  if (u.includes('instagram.com')) return 'instagram';
+  if (u.includes('.m3u8')) return 'hls';
+  return 'mp4';
 }
 
 function getYouTubeId(url) {
-    const patterns = [
-        /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{11,})/,
-        /youtube\.com\/watch\?.*v=([A-Za-z0-9_-]{11,})/
-    ];
-    for (const pattern of patterns) {
-        const match = url.match(pattern);
-        if (match) return match[1];
-    }
-    return null;
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{11,})/,
+    /youtube\.com\/watch\?.*v=([A-Za-z0-9_-]{11,})/
+  ];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
 }
 
 function getInstagramPath(url) {
-    const match = url.match(/instagram\.com\/(reels?|p)\/([^\/?#]+)/i);
-    return match ? `${match[1]}/${match[2]}` : null;
+  const match = url.match(/instagram\.com\/(reels?|p)\/([^\/?#]+)/i);
+  return match ? `${match[1]}/${match[2]}` : null;
 }
 
-function limparPlayer() {
-    if (activeHls) {
-        try { activeHls.destroy(); } catch(e) {}
-        activeHls = null;
-    }
-    const playerEl = document.getElementById('player');
-    const frameEl = document.getElementById('frame');
-    playerEl.pause();
-    playerEl.src = '';
-    frameEl.src = 'about:blank';
-    frameEl.style.display = 'none';
-    playerEl.style.display = 'block';
+function escAttr(str) {
+  return String(str ?? '').replace(/"/g, '&quot;');
 }
 
-async function carregarVideo(video, segundoAtual) {
-    const type = detectType(video.url);
-    const playerEl = document.getElementById('player');
-    const frameEl = document.getElementById('frame');
-    
-    limparPlayer();
-    
-    if (type === 'youtube') {
-        const youtubeId = getYouTubeId(video.url);
-        if (!youtubeId) throw new Error('ID YouTube inválido');
-        
-        const params = new URLSearchParams({
-            autoplay: '1',
-            controls: '0',
-            rel: '0',
-            playsinline: '1'
-        });
-        if (!audioAtivado) params.set('mute', '1');
-        
-        if (video.start && video.start > 0 && segundoAtual === video.start) {
-            params.set('start', video.start);
-        } else if (segundoAtual > 0) {
-            params.set('start', Math.floor(segundoAtual));
-        }
-        
-        if (video.end && video.end > 0) {
-            params.set('end', video.end);
-        }
-        
-        frameEl.src = `https://www.youtube.com/embed/${youtubeId}?${params}`;
-        frameEl.style.display = 'block';
-        playerEl.style.display = 'none';
-        return;
-    }
-    
-    if (type === 'instagram') {
-        const instaPath = getInstagramPath(video.url);
-        if (!instaPath) throw new Error('URL Instagram inválida');
-        
-        frameEl.src = `https://www.instagram.com/${instaPath}/embed`;
-        frameEl.style.display = 'block';
-        playerEl.style.display = 'none';
-        return;
-    }
-    
-    playerEl.style.display = 'block';
-    frameEl.style.display = 'none';
-    
-    if (type === 'hls' && Hls && Hls.isSupported()) {
-        if (activeHls) activeHls.destroy();
-        activeHls = new Hls({ debug: false });
-        activeHls.loadSource(video.url);
-        activeHls.attachMedia(playerEl);
-        await new Promise((resolve, reject) => {
-            activeHls.on(Hls.Events.MANIFEST_PARSED, resolve);
-            activeHls.on(Hls.Events.ERROR, (_, data) => {
-                if (data.fatal) reject(data);
-            });
-            setTimeout(() => reject(new Error('Timeout HLS')), 15000);
-        });
-    } else {
-        playerEl.src = video.url;
-        await new Promise((resolve, reject) => {
-            playerEl.onloadedmetadata = resolve;
-            playerEl.onerror = reject;
-            setTimeout(() => reject(new Error('Timeout')), 15000);
-        });
-    }
-    
-    if (segundoAtual > 0 && video.start === undefined) {
-        playerEl.currentTime = segundoAtual;
-    } else if (video.start && video.start > 0) {
-        playerEl.currentTime = video.start;
-    }
-    
-    playerEl.muted = !audioAtivado;
-    await playerEl.play().catch(e => console.log("Auto-play bloqueado:", e));
+// ==================== Playlist Table ====================
+function renderRow(idx, url, type, start, end, note) {
+  const types = ['auto', 'youtube', 'instagram', 'hls', 'mp4'];
+  const typeOptions = types.map(t => `<option value="${t}"${t === type ? ' selected' : ''}>${t}</option>`).join('');
+  
+  return `
+    <tr>
+      <td>${idx}</td>
+      <td class="url"><input type="text" value="${escAttr(url)}" placeholder="https://..."></td>
+      <td class="type"><select>${typeOptions}</select></td>
+      <td class="num"><input type="number" step="1" value="${escAttr(start)}" placeholder="seg"></td>
+      <td class="num"><input type="number" step="1" value="${escAttr(end)}" placeholder="seg"></td>
+      <td><input type="text" value="${escAttr(note)}" placeholder="Nota"></td>
+      <td class="actions"><button class="row-btn" title="Remover">✕</button></td>
+    </tr>
+  `;
 }
 
-function updateLiveStream() {
-    if (playlist.length === 0) return;
+function addRow(data) {
+  const tr = document.createElement('tr');
+  const idx = tbody.children.length + 1;
+  tr.innerHTML = renderRow(idx, data[0], data[1], data[2], data[3], data[4]);
+  tr.querySelector('.row-btn').addEventListener('click', () => {
+    tr.remove();
+    reindexTable();
+  });
+  tbody.appendChild(tr);
+}
+
+function reindexTable() {
+  const rows = tbody.querySelectorAll('tr');
+  rows.forEach((row, i) => {
+    if (row.cells[0]) row.cells[0].textContent = i + 1;
+  });
+}
+
+function readTable() {
+  const rows = tbody.querySelectorAll('tr');
+  const newVideos = [];
+  for (const row of rows) {
+    const inputs = row.querySelectorAll('input, select');
+    const url = inputs[0].value.trim();
+    if (!url) continue;
     
-    const agora = Date.now() / 1000;
-    let tempoTotalCiclo = 0;
-    
-    playlist.forEach(v => {
-        let duracao;
-        if (v.end && v.end > 0) {
-            duracao = v.end - (v.start || 0);
-        } else {
-            duracao = 300;
-        }
-        tempoTotalCiclo += duracao > 0 ? duracao : 300;
+    newVideos.push({
+      url: url,
+      type: inputs[1].value,
+      start: inputs[2].value === '' ? null : Number(inputs[2].value),
+      end: inputs[3].value === '' ? null : Number(inputs[3].value),
+      note: inputs[4].value.trim()
     });
-    
-    if (tempoTotalCiclo <= 0) tempoTotalCiclo = 1;
-    
-    let resto = agora % tempoTotalCiclo;
-    let acumulado = 0;
-    let indiceAtual = 0;
-    let segundoNoVideo = 0;
-    
-    for (let i = 0; i < playlist.length; i++) {
-        let duracao;
-        if (playlist[i].end && playlist[i].end > 0) {
-            duracao = playlist[i].end - (playlist[i].start || 0);
-        } else {
-            duracao = 300;
-        }
-        const durValida = duracao > 0 ? duracao : 300;
-        if (resto < acumulado + durValida) {
-            indiceAtual = i;
-            const startTime = playlist[i].start || 0;
-            segundoNoVideo = startTime + (resto - acumulado);
-            break;
-        }
-        acumulado += durValida;
-    }
-    
-    // Atualizar UI
-    document.querySelectorAll('.prog-table tr').forEach(r => r.classList.remove('active-row'));
-    const activeRow = document.getElementById(`prog-${indiceAtual}`);
-    if (activeRow) activeRow.classList.add('active-row');
-    
-    const videoAtual = playlist[indiceAtual];
-    if (videoAtual) {
-        const duracaoDisplay = (videoAtual.end && videoAtual.end > 0) ? `${videoAtual.end}s` : 'completo';
-        document.getElementById('info').innerHTML = `<span class="status-dot status-live"></span> 📺 EM DIRETO: ${videoAtual.title} | ${Math.floor(segundoNoVideo)}s / ${duracaoDisplay}`;
-    }
-    
-    // Mudou de vídeo?
-    if (indiceAtual !== ultimoIndice) {
-        ultimoIndice = indiceAtual;
-        carregarVideo(videoAtual, segundoNoVideo).catch(err => {
-            console.error("Erro ao carregar vídeo:", err);
-            document.getElementById('info').innerHTML = `<span class="status-dot status-live"></span> ⚠️ Erro: ${err.message} - pulando...`;
-            setTimeout(() => {
-                ultimoIndice = -1;
-                updateLiveStream();
-            }, 3000);
-        });
-    } else if (document.getElementById('player').style.display !== 'none') {
-        const playerEl = document.getElementById('player');
-        if (!playerEl.paused && Math.abs(playerEl.currentTime - segundoNoVideo) > 2) {
-            playerEl.currentTime = segundoNoVideo;
-        }
-    }
+  }
+  return newVideos;
 }
 
-// EVENTOS E INICIALIZAÇÃO
-document.addEventListener('keydown', (e) => {
-    if (e.key.toLowerCase() === 'a') {
-        e.preventDefault();
-        toggleAdmin();
-    }
-    if (e.key === 'Escape') {
-        document.getElementById('adminPanel').style.display = 'none';
-    }
-});
+// ==================== Playback Core ====================
+function clearPlayback() {
+  if (timeUpdateHandler) {
+    player.removeEventListener('timeupdate', timeUpdateHandler);
+    timeUpdateHandler = null;
+  }
+  if (frameTimeout) {
+    clearTimeout(frameTimeout);
+    frameTimeout = null;
+  }
+  if (activeHls) {
+    try { activeHls.destroy(); } catch(e) {}
+    activeHls = null;
+  }
+  try { 
+    player.pause(); 
+    player.removeAttribute('src');
+    player.load();
+  } catch(e) {}
+  
+  frame.src = 'about:blank';
+  frame.style.display = 'none';
+  player.style.display = 'block';
+}
 
-// Prevenir mute automático do Chrome
-document.addEventListener('click', () => {
-    if (!audioAtivado) {
-        const playerEl = document.getElementById('player');
-        if (playerEl && playerEl.muted) {
-            playerEl.muted = false;
+function buildOrder() {
+  if (!videos.length) {
+    order = [];
+    currentPos = 0;
+    return;
+  }
+  
+  order = videos.map((_, i) => i);
+  if (shuffleBtn.checked) {
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+  }
+  currentPos = 0;
+  isShuffled = shuffleBtn.checked;
+}
+
+function highlightCurrentRow() {
+  document.querySelectorAll('#playlistTable tbody tr').forEach(tr => {
+    tr.classList.remove('active');
+  });
+  
+  if (!videos.length || !order.length) return;
+  
+  const currentVideoIndex = order[currentPos];
+  const rows = document.querySelectorAll('#playlistTable tbody tr');
+  if (rows[currentVideoIndex]) {
+    rows[currentVideoIndex].classList.add('active');
+  }
+}
+
+function setupTimeCuts(video) {
+  const start = video.start;
+  const end = video.end;
+  
+  if (start !== null && start > 0 && !isNaN(start)) {
+    player.currentTime = start;
+  }
+  
+  if (end !== null && end > 0 && !isNaN(end)) {
+    timeUpdateHandler = () => {
+      if (player.currentTime >= end) {
+        player.removeEventListener('timeupdate', timeUpdateHandler);
+        timeUpdateHandler = null;
+        setInfo(`⏹️ Corte fim (${end}s) — próximo vídeo...`);
+        nextVideo();
+      }
+    };
+    player.addEventListener('timeupdate', timeUpdateHandler);
+  }
+}
+
+// CORREÇÃO DO ERRO 153: Função separada para HLS com tratamento correto
+async function loadHLSVideo(url) {
+  return new Promise((resolve, reject) => {
+    // Verificar se HLS.js está disponível
+    if (!window.Hls) {
+      reject(new Error('HLS.js não carregado'));
+      return;
+    }
+    
+    if (!Hls.isSupported()) {
+      // Fallback para nativo do Safari
+      if (player.canPlayType('application/vnd.apple.mpegURL')) {
+        player.src = url;
+        player.addEventListener('loadedmetadata', () => resolve(), { once: true });
+        player.addEventListener('error', () => reject(new Error('Erro HLS nativo')), { once: true });
+      } else {
+        reject(new Error('HLS não suportado neste navegador'));
+      }
+      return;
+    }
+    
+    // Usar HLS.js
+    try {
+      if (activeHls) {
+        activeHls.destroy();
+        activeHls = null;
+      }
+      
+      activeHls = new Hls({
+        debug: false,
+        enableWorker: true,
+        maxBufferLength: 30,
+        maxMaxBufferLength: 60
+      });
+      
+      activeHls.loadSource(url);
+      activeHls.attachMedia(player);
+      
+      const timeout = setTimeout(() => {
+        reject(new Error('Timeout loading HLS (30s)'));
+      }, 30000);
+      
+      activeHls.on(Hls.Events.MANIFEST_PARSED, () => {
+        clearTimeout(timeout);
+        resolve();
+      });
+      
+      activeHls.on(Hls.Events.ERROR, (event, data) => {
+        if (data.fatal) {
+          clearTimeout(timeout);
+          reject(new Error(`HLS error: ${data.type} - ${data.details || 'unknown'}`));
         }
+      });
+    } catch (err) {
+      reject(new Error(`HLS init error: ${err.message}`));
     }
+  });
+}
+
+async function playCurrent() {
+  if (!videos.length) {
+    setInfo('❌ Playlist vazia! Adicione vídeos.', true);
+    return;
+  }
+  
+  if (!order.length || shuffleBtn.checked !== isShuffled) buildOrder();
+  if (currentPos >= order.length) currentPos = 0;
+  
+  const video = videos[order[currentPos]];
+  const resolvedType = video.type === 'auto' ? detectType(video.url) : video.type;
+  
+  clearPlayback();
+  highlightCurrentRow();
+  
+  setInfo(`🎬 (${currentPos+1}/${order.length}): ${video.note || video.url.substring(0, 55)}...`);
+  
+  try {
+    if (resolvedType === 'youtube') {
+      const youtubeId = getYouTubeId(video.url);
+      if (!youtubeId) throw new Error('ID YouTube inválido');
+      
+      const params = new URLSearchParams({
+        autoplay: '1',
+        rel: '0',
+        playsinline: '1'
+      });
+      if (video.start && video.start > 0) params.set('start', video.start);
+      if (video.end && video.end > 0) params.set('end', video.end);
+      
+      frame.src = `https://www.youtube.com/embed/${youtubeId}?${params}`;
+      frame.style.display = 'block';
+      player.style.display = 'none';
+      isPlaying = true;
+      setInfo(`▶️ YouTube: ${video.note || youtubeId}`);
+      
+      let duration = 300;
+      if (video.end && video.start) duration = video.end - video.start;
+      else if (video.end) duration = video.end;
+      
+      frameTimeout = setTimeout(() => nextVideo(), Math.min(duration * 1000 + 5000, 300000));
+      
+    } else if (resolvedType === 'instagram') {
+      const instaPath = getInstagramPath(video.url);
+      if (!instaPath) throw new Error('URL Instagram inválida');
+      
+      frame.src = `https://www.instagram.com/${instaPath}/embed`;
+      frame.style.display = 'block';
+      player.style.display = 'none';
+      isPlaying = true;
+      setInfo(`📸 Instagram: ${video.note || instaPath}`);
+      
+      let duration = 60;
+      if (video.end && video.start) duration = video.end - video.start;
+      else if (video.end) duration = video.end;
+      
+      frameTimeout = setTimeout(() => nextVideo(), Math.min(duration * 1000 + 5000, 180000));
+      
+    } else if (resolvedType === 'hls') {
+      await loadHLSVideo(video.url);
+      setupTimeCuts(video);
+      await player.play();
+      isPlaying = true;
+      setInfo(`🎥 HLS: ${video.note || video.url.substring(0, 45)}`);
+      
+    } else { // mp4
+      player.src = video.url;
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Timeout MP4 (15s)')), 15000);
+        player.addEventListener('loadedmetadata', () => { clearTimeout(timeout); resolve(); }, { once: true });
+        player.addEventListener('error', () => { clearTimeout(timeout); reject(new Error('Erro MP4')); }, { once: true });
+      });
+      setupTimeCuts(video);
+      await player.play();
+      isPlaying = true;
+      setInfo(`🎬 MP4: ${video.note || video.url.substring(0, 45)}`);
+    }
+    
+    playBtn.textContent = '⏸ Pausar';
+    
+  } catch (error) {
+    setInfo(`❌ Erro [${resolvedType}]: ${error.message.substring(0, 80)}`, true);
+    console.error('Erro detalhado:', error);
+    setTimeout(() => nextVideo(), 1500);
+  }
+}
+
+function nextVideo() {
+  if (!videos.length || !order.length) return;
+  currentPos = (currentPos + 1) % order.length;
+  playCurrent();
+}
+
+function prevVideo() {
+  if (!videos.length || !order.length) return;
+  currentPos = (currentPos - 1 + order.length) % order.length;
+  playCurrent();
+}
+
+function saveAndStart() {
+  videos = readTable();
+  if (!videos.length) {
+    setInfo('❌ Playlist vazia! Adicione pelo menos um vídeo.', true);
+    return;
+  }
+  buildOrder();
+  setInfo(`💾 Playlist salva: ${videos.length} vídeos. Iniciando...`);
+  playCurrent();
+}
+
+function togglePlayPause() {
+  if (!videos.length) {
+    saveAndStart();
+    return;
+  }
+  
+  if (frame.style.display === 'block') {
+    setInfo('⚠️ Use os controles do iframe para pausar YouTube/Instagram');
+    return;
+  }
+  
+  if (player.paused) {
+    player.play();
+    playBtn.textContent = '⏸ Pausar';
+    isPlaying = true;
+    setInfo('▶️ Reproduzindo');
+  } else {
+    player.pause();
+    playBtn.textContent = '▶ Iniciar';
+    isPlaying = false;
+    setInfo('⏸️ Pausado');
+  }
+}
+
+// ==================== Event Listeners ====================
+playBtn.addEventListener('click', togglePlayPause);
+nextBtn.addEventListener('click', nextVideo);
+prevBtn.addEventListener('click', prevVideo);
+shuffleBtn.addEventListener('change', () => { buildOrder(); setInfo(shuffleBtn.checked ? '🔀 Shuffle ativado' : '📋 Ordem normal'); });
+addRowBtn.addEventListener('click', () => addRow(['', 'auto', '', '', '']));
+saveBtn.addEventListener('click', saveAndStart);
+
+player.addEventListener('ended', () => { setInfo('🏁 Vídeo terminado'); nextVideo(); });
+player.addEventListener('error', (e) => {
+  const errMsg = player.error?.message || 'desconhecido';
+  setInfo(`⚠️ Erro vídeo: ${errMsg}`, true);
+  setTimeout(() => nextVideo(), 2000);
 });
 
-loadPlaylist();
-setInterval(updateLiveStream, 2000);
-updateLiveStream();
+// ==================== Inicialização ====================
+INITIAL_PLAYLIST.forEach(addRow);
+videos = readTable();
+buildOrder();
+setInfo(`✅ Pronto! ${videos.length} vídeos carregados — clique ▶ Iniciar.`);
 </script>
 </body>
 </html>
