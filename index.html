@@ -5,6 +5,7 @@
 <title>Daniboss TV Player</title>
 
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script src="https://www.youtube.com/iframe_api"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
@@ -50,7 +51,8 @@ h2 {
 }
 
 #player,
-#frame {
+#frame,
+#youtubeBox {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -59,7 +61,8 @@ h2 {
 
 #player { object-fit: contain; }
 
-#frame {
+#frame,
+#youtubeBox {
   border: 0;
   display: none;
 }
@@ -233,6 +236,7 @@ tr.active td { border-color: #3b82f6; }
 <div class="player-container">
   <div id="stage">
     <video id="player" controls playsinline autoplay></video>
+    <div id="youtubeBox"></div>
 
     <iframe
       id="frame"
@@ -264,7 +268,7 @@ tr.active td { border-color: #3b82f6; }
 
 <div class="warn">
   <strong>📌 Notas:</strong>
-  Autoplay começa sem som quando o navegador bloquear som automático. Instagram/Reels carrega como embed e avança pelo tempo definido.
+  YouTube/MP4/HLS vão até ao fim real. Instagram/Reels não permite fim real; usa o campo Fim ou 10 segundos.
 </div>
 
 <div class="playlist-header">
@@ -316,6 +320,7 @@ const PLAYLIST_DOC = db.collection('playlists').doc('principal');
 
 const player = document.getElementById('player');
 const frame = document.getElementById('frame');
+const youtubeBox = document.getElementById('youtubeBox');
 const playBtn = document.getElementById('playBtn');
 const prevBtn = document.getElementById('prevBtn');
 const nextBtn = document.getElementById('nextBtn');
@@ -334,11 +339,17 @@ let activeHls = null;
 let frameTimeout = null;
 let watchdogTimer = null;
 let timeUpdateHandler = null;
+let ytPlayer = null;
+let ytReady = false;
 
 let isPlaying = false;
 let isLoading = false;
 let isSaving = false;
 let isShuffled = true;
+
+window.onYouTubeIframeAPIReady = function () {
+  ytReady = true;
+};
 
 function setInfo(message, isError = false) {
   infoDiv.innerHTML = `
@@ -594,6 +605,7 @@ function startWatchdog() {
 
   watchdogTimer = setInterval(() => {
     if (frame.style.display === 'block') return;
+    if (youtubeBox.style.display === 'block') return;
     if (!isPlaying) return;
 
     const now = player.currentTime || 0;
@@ -631,6 +643,14 @@ function clearPlayback() {
     try { activeHls.destroy(); } catch (e) {}
     activeHls = null;
   }
+
+  if (ytPlayer) {
+    try { ytPlayer.destroy(); } catch(e) {}
+    ytPlayer = null;
+  }
+
+  youtubeBox.innerHTML = '';
+  youtubeBox.style.display = 'none';
 
   try {
     player.pause();
@@ -739,7 +759,7 @@ async function safePlayVideo() {
   }
 }
 
-function getDuration(video, fallback = 10, max = 300) {
+function getDuration(video, fallback = 10, max = 60) {
   let duration = fallback;
 
   if (video.end && video.start) duration = video.end - video.start;
@@ -772,6 +792,57 @@ function goNext(reason = '⏭') {
   }, 100);
 }
 
+async function playYouTube(video, id) {
+  return new Promise((resolve, reject) => {
+    let start = video.start && video.start > 0 ? video.start : 0;
+
+    youtubeBox.style.display = 'block';
+    player.style.display = 'none';
+    frame.style.display = 'none';
+
+    ytPlayer = new YT.Player('youtubeBox', {
+      width: '100%',
+      height: '100%',
+      videoId: id,
+      playerVars: {
+        autoplay: 1,
+        mute: 1,
+        playsinline: 1,
+        rel: 0,
+        start: start
+      },
+      events: {
+        onReady: (event) => {
+          event.target.mute();
+          event.target.playVideo();
+
+          isPlaying = true;
+          playBtn.textContent = '⏸ Pausar';
+
+          setInfo(`▶️ YouTube: ${video.note || id}`);
+
+          // Só corta se existir campo Fim
+          if (video.end && video.end > 0) {
+            frameTimeout = setTimeout(() => {
+              goNext('⏱ Corte fim');
+            }, (video.end - (video.start || 0)) * 1000);
+          }
+
+          resolve();
+        },
+        onStateChange: (event) => {
+          if (event.data === YT.PlayerState.ENDED) {
+            goNext('🏁 YouTube terminou');
+          }
+        },
+        onError: () => {
+          goNext('⚠️ Erro YouTube');
+        }
+      }
+    });
+  });
+}
+
 async function playCurrent() {
   if (isLoading) return;
 
@@ -796,30 +867,11 @@ async function playCurrent() {
       const id = getYouTubeId(video.url);
       if (!id) throw new Error('YouTube inválido');
 
-      const params = new URLSearchParams({
-        autoplay: '1',
-        mute: '1',
-        rel: '0',
-        playsinline: '1',
-        enablejsapi: '1'
-      });
+      if (!window.YT || !YT.Player) {
+        throw new Error('YouTube API ainda não carregou');
+      }
 
-      if (video.start && video.start > 0) params.set('start', video.start);
-      if (video.end && video.end > 0) params.set('end', video.end);
-
-      frame.src = `https://www.youtube.com/embed/${id}?${params.toString()}`;
-      frame.style.display = 'block';
-      player.style.display = 'none';
-
-      isPlaying = true;
-      playBtn.textContent = '⏸ Pausar';
-
-      setInfo(`▶️ YouTube: ${video.note || id}`);
-
-      frameTimeout = setTimeout(
-        () => goNext('⏱ Tempo terminado'),
-        getDuration(video, 300, 300) * 1000
-      );
+      await playYouTube(video, id);
     }
 
     else if (type === 'instagram') {
@@ -829,6 +881,7 @@ async function playCurrent() {
       frame.src = `https://www.instagram.com/${instaPath}/embed`;
       frame.style.display = 'block';
       player.style.display = 'none';
+      youtubeBox.style.display = 'none';
 
       isPlaying = true;
       playBtn.textContent = '⏸ Pausar';
@@ -837,7 +890,7 @@ async function playCurrent() {
 
       frameTimeout = setTimeout(() => {
         goNext('📸 Instagram temporizado');
-      }, getDuration(video, 10, 15) * 1000);
+      }, getDuration(video, 10, 60) * 1000);
     }
 
     else if (type === 'hls') {
@@ -910,13 +963,22 @@ playBtn.addEventListener('click', () => {
   player.muted = false;
   player.volume = 1;
 
+  if (ytPlayer) {
+    try {
+      ytPlayer.unMute();
+      ytPlayer.setVolume(100);
+      setInfo('🔊 Som ativado no YouTube');
+    } catch(e) {}
+    return;
+  }
+
   videos = readTable();
   if (!videos.length) return;
 
   if (!order.length) buildOrder();
 
   if (frame.style.display === 'block') {
-    setInfo('🔊 Som ativado. Em YouTube/Instagram usa também o controlo do iframe.');
+    setInfo('🔊 Em Instagram usa o controlo do próprio embed.');
     return;
   }
 
