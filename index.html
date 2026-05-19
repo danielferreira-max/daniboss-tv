@@ -57,6 +57,7 @@ h2 { color: #fff; display: flex; align-items: center; gap: 12px; }
 #frame, #youtubeBox {
   border: 0;
   display: none;
+  background: #000;
 }
 
 .watermark {
@@ -205,7 +206,7 @@ td input, td select {
 
 td.url input { font-family: monospace; font-size: 11px; }
 td.num { width: 85px; }
-td.type { width: 100px; }
+td.type { width: 105px; }
 td.actions { width: 55px; text-align: center; }
 
 .row-btn {
@@ -236,15 +237,21 @@ tr.active td { border-color: #3b82f6; }
 
 <h2>
   🎬 Daniboss TV
-  <span class="badge">Firebase · Shuffle · Autoplay · Anti-Trava</span>
+  <span class="badge">Firebase · Shuffle · Autoplay · YouTube · Instagram · OK.ru · HLS · MP4</span>
 </h2>
 
 <div class="player-container">
   <div id="stage">
     <video id="player" controls playsinline autoplay></video>
+
     <div id="youtubeBox"></div>
 
-    <iframe id="frame" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>
+    <iframe
+      id="frame"
+      allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+      allowfullscreen
+      referrerpolicy="no-referrer"
+    ></iframe>
 
     <div class="watermark">DANIBOSS <span>TV</span></div>
   </div>
@@ -269,7 +276,8 @@ tr.active td { border-color: #3b82f6; }
 
 <div class="warn">
   <strong>📌 Notas:</strong>
-  O navegador pode bloquear som automático. Usa o botão 🔊 Ativar Som uma vez. 
+  O navegador pode bloquear som automático. Usa o botão 🔊 Ativar Som uma vez.
+  Em vídeos OK.ru/Instagram, o som pode exigir clique dentro do próprio vídeo.
 </div>
 
 <div class="secret-icons">
@@ -295,7 +303,8 @@ tr.active td { border-color: #3b82f6; }
   </div>
 
   <p class="hint">
-    💡 YouTube/MP4/HLS vão até ao fim real. Instagram/Reels usa Fim ou 10 segundos.
+    Agora os campos Início e Fim são em minutos. Exemplo: 1.5 = 1 minuto e 30 segundos.
+    Para OK.ru/Instagram, usa Fim para definir quanto tempo fica no ecrã.
   </p>
 
   <div class="table-wrapper">
@@ -304,9 +313,9 @@ tr.active td { border-color: #3b82f6; }
         <tr>
           <th style="width:40px">#</th>
           <th>URL</th>
-          <th style="width:100px">Tipo</th>
-          <th style="width:80px">Início</th>
-          <th style="width:80px">Fim</th>
+          <th style="width:105px">Tipo</th>
+          <th style="width:90px">Início min</th>
+          <th style="width:90px">Fim min</th>
           <th>Nota</th>
           <th style="width:50px"></th>
         </tr>
@@ -367,6 +376,20 @@ let isShuffled = true;
 let soundEnabled = false;
 
 window.onYouTubeIframeAPIReady = function () {};
+
+function minutesToSeconds(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(String(value).replace(',', '.'));
+  if (isNaN(n) || n < 0) return null;
+  return n * 60;
+}
+
+function secondsToMinutes(value) {
+  if (value === null || value === undefined || value === '') return '';
+  const n = Number(value);
+  if (isNaN(n) || n < 0) return '';
+  return Number((n / 60).toFixed(3));
+}
 
 function setInfo(message, isError = false) {
   infoDiv.innerHTML = `
@@ -468,18 +491,21 @@ function renderPlaylist(lista) {
   tbody.innerHTML = '';
 
   lista.forEach(v => {
+    const startMin = v.startMin ?? secondsToMinutes(v.start);
+    const endMin = v.endMin ?? secondsToMinutes(v.end);
+
     addRow([
       v.url || '',
       v.type || 'auto',
-      v.start ?? '',
-      v.end ?? '',
+      startMin,
+      endMin,
       v.note || ''
     ]);
   });
 }
 
-function renderRow(idx, url, type, start, end, note) {
-  const types = ['auto', 'youtube', 'instagram', 'hls', 'mp4'];
+function renderRow(idx, url, type, startMin, endMin, note) {
+  const types = ['auto', 'youtube', 'instagram', 'okru', 'hls', 'mp4'];
 
   const typeOptions = types
     .map(t => `<option value="${t}"${t === type ? ' selected' : ''}>${t}</option>`)
@@ -489,8 +515,8 @@ function renderRow(idx, url, type, start, end, note) {
     <td>${idx}</td>
     <td class="url"><input type="text" value="${escAttr(url)}" placeholder="https://..."></td>
     <td class="type"><select>${typeOptions}</select></td>
-    <td class="num"><input type="number" step="1" value="${escAttr(start)}" placeholder="seg"></td>
-    <td class="num"><input type="number" step="1" value="${escAttr(end)}" placeholder="seg"></td>
+    <td class="num"><input type="number" step="0.01" value="${escAttr(startMin)}" placeholder="min"></td>
+    <td class="num"><input type="number" step="0.01" value="${escAttr(endMin)}" placeholder="min"></td>
     <td><input type="text" value="${escAttr(note)}" placeholder="Nota"></td>
     <td class="actions"><button class="row-btn" title="Remover">✕</button></td>
   `;
@@ -531,11 +557,16 @@ function readTable() {
 
     if (!url) return;
 
+    const startMin = inputs[2].value === '' ? null : Number(String(inputs[2].value).replace(',', '.'));
+    const endMin = inputs[3].value === '' ? null : Number(String(inputs[3].value).replace(',', '.'));
+
     arr.push({
       url,
       type: inputs[1].value,
-      start: inputs[2].value === '' ? null : Number(inputs[2].value),
-      end: inputs[3].value === '' ? null : Number(inputs[3].value),
+      startMin,
+      endMin,
+      start: minutesToSeconds(startMin),
+      end: minutesToSeconds(endMin),
       note: inputs[4].value.trim()
     });
   });
@@ -548,9 +579,29 @@ function detectType(url) {
 
   if (u.includes('youtube.com') || u.includes('youtu.be')) return 'youtube';
   if (u.includes('instagram.com')) return 'instagram';
+  if (u.includes('ok.ru/video') || u.includes('m.ok.ru/video')) return 'okru';
   if (u.includes('.m3u8')) return 'hls';
 
   return 'mp4';
+}
+
+function normalizeOkRuUrl(url) {
+  let clean = String(url || '').trim();
+
+  clean = clean.replace('https://m.ok.ru/video/', 'https://ok.ru/video/');
+  clean = clean.replace('http://m.ok.ru/video/', 'https://ok.ru/video/');
+  clean = clean.replace('http://ok.ru/video/', 'https://ok.ru/video/');
+
+  return clean;
+}
+
+function getOkRuEmbedUrl(url) {
+  const clean = normalizeOkRuUrl(url);
+  const match = clean.match(/ok\.ru\/video\/(\d+)/i);
+
+  if (!match) return clean;
+
+  return `https://ok.ru/videoembed/${match[1]}`;
 }
 
 function getYouTubeId(url) {
@@ -693,7 +744,9 @@ function setupTimeCuts(video) {
   const end = video.end;
 
   if (start !== null && start > 0 && !isNaN(start)) {
-    player.currentTime = start;
+    try {
+      player.currentTime = start;
+    } catch (e) {}
   }
 
   if (end !== null && end > 0 && !isNaN(end)) {
@@ -784,17 +837,22 @@ async function safePlayVideo() {
   }
 }
 
-function getDuration(video, fallback = 10, max = 60) {
-  let duration = fallback;
+function getFrameDuration(video, fallbackMinutes = 1, maxMinutes = 120) {
+  let durationSeconds = fallbackMinutes * 60;
 
-  if (video.end && video.start) duration = video.end - video.start;
-  else if (video.end) duration = video.end;
+  if (video.end !== null && video.start !== null && video.end > video.start) {
+    durationSeconds = video.end - video.start;
+  } else if (video.end !== null && video.end > 0) {
+    durationSeconds = video.end;
+  }
 
-  duration = Number(duration);
+  if (!durationSeconds || durationSeconds < 1 || isNaN(durationSeconds)) {
+    durationSeconds = fallbackMinutes * 60;
+  }
 
-  if (!duration || duration < 1 || isNaN(duration)) duration = fallback;
+  const maxSeconds = maxMinutes * 60;
 
-  return Math.max(3, Math.min(duration, max));
+  return Math.max(3, Math.min(durationSeconds, maxSeconds));
 }
 
 function goNext(reason = '⏭') {
@@ -819,7 +877,7 @@ function goNext(reason = '⏭') {
 
 async function playYouTube(video, id) {
   return new Promise((resolve) => {
-    const start = video.start && video.start > 0 ? video.start : 0;
+    const start = video.start && video.start > 0 ? Math.floor(video.start) : 0;
 
     youtubeBox.style.display = 'block';
     player.style.display = 'none';
@@ -853,9 +911,10 @@ async function playYouTube(video, id) {
           setInfo(`▶️ YouTube: ${video.note || id}`);
 
           if (video.end && video.end > 0) {
+            const cutDuration = Math.max(1, video.end - (video.start || 0));
             frameTimeout = setTimeout(() => {
               goNext('⏱ Corte fim');
-            }, (video.end - (video.start || 0)) * 1000);
+            }, cutDuration * 1000);
           }
 
           resolve();
@@ -931,7 +990,25 @@ async function playCurrent() {
 
       frameTimeout = setTimeout(() => {
         goNext('📸 Instagram temporizado');
-      }, getDuration(video, 10, 60) * 1000);
+      }, getFrameDuration(video, 1, 120) * 1000);
+    }
+
+    else if (type === 'okru') {
+      const embedUrl = getOkRuEmbedUrl(video.url);
+
+      frame.src = embedUrl;
+      frame.style.display = 'block';
+      player.style.display = 'none';
+      youtubeBox.style.display = 'none';
+
+      isPlaying = true;
+      playBtn.textContent = '⏸ Pausar';
+
+      setInfo(`🟠 OK.ru carregado: ${video.note || embedUrl}`);
+
+      frameTimeout = setTimeout(() => {
+        goNext('🟠 OK.ru temporizado');
+      }, getFrameDuration(video, 2, 240) * 1000);
     }
 
     else if (type === 'hls') {
@@ -1006,7 +1083,7 @@ function ativarSom() {
   }
 
   if (frame.style.display === 'block') {
-    setInfo('🔊 Som ativado quando possível. Instagram pode exigir clique no próprio embed.');
+    setInfo('🔊 Som ativado quando possível. OK.ru/Instagram pode exigir clique dentro do próprio vídeo.');
   }
 
   if (player.style.display !== 'none') {
@@ -1033,7 +1110,7 @@ playBtn.addEventListener('click', () => {
 
   if (!order.length) buildOrder();
 
-  if (player.paused && player.style.display !== 'none') {
+  if (player.paused && player.style.display !== 'none' && player.src) {
     player.play();
     isPlaying = true;
     playBtn.textContent = '⏸ Pausar';
