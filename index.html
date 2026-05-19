@@ -205,7 +205,7 @@ td input, td select {
 }
 
 td.url input { font-family: monospace; font-size: 11px; }
-td.num { width: 85px; }
+td.num { width: 90px; }
 td.type { width: 105px; }
 td.actions { width: 55px; text-align: center; }
 
@@ -237,7 +237,7 @@ tr.active td { border-color: #3b82f6; }
 
 <h2>
   🎬 Daniboss TV
-  <span class="badge">Firebase · Shuffle · Autoplay · YouTube · Instagram · OK.ru · HLS · MP4</span>
+  <span class="badge">Firebase · Shuffle · Autoplay · Qualidade Máxima · YouTube · OK.ru · HLS · MP4</span>
 </h2>
 
 <div class="player-container">
@@ -277,7 +277,7 @@ tr.active td { border-color: #3b82f6; }
 <div class="warn">
   <strong>📌 Notas:</strong>
   O navegador pode bloquear som automático. Usa o botão 🔊 Ativar Som uma vez.
-  Em vídeos OK.ru/Instagram, o som pode exigir clique dentro do próprio vídeo.
+  OK.ru e Instagram podem exigir clique dentro do vídeo. A qualidade máxima só pode ser forçada em YouTube e HLS quando a plataforma permite.
 </div>
 
 <div class="secret-icons">
@@ -303,7 +303,7 @@ tr.active td { border-color: #3b82f6; }
   </div>
 
   <p class="hint">
-    Agora os campos Início e Fim são em minutos. Exemplo: 1.5 = 1 minuto e 30 segundos.
+    Início e Fim são em minutos. Exemplo: 1.5 = 1 minuto e 30 segundos.
     Para OK.ru/Instagram, usa Fim para definir quanto tempo fica no ecrã.
   </p>
 
@@ -585,25 +585,6 @@ function detectType(url) {
   return 'mp4';
 }
 
-function normalizeOkRuUrl(url) {
-  let clean = String(url || '').trim();
-
-  clean = clean.replace('https://m.ok.ru/video/', 'https://ok.ru/video/');
-  clean = clean.replace('http://m.ok.ru/video/', 'https://ok.ru/video/');
-  clean = clean.replace('http://ok.ru/video/', 'https://ok.ru/video/');
-
-  return clean;
-}
-
-function getOkRuEmbedUrl(url) {
-  const clean = normalizeOkRuUrl(url);
-  const match = clean.match(/ok\.ru\/video\/(\d+)/i);
-
-  if (!match) return clean;
-
-  return `https://ok.ru/videoembed/${match[1]}`;
-}
-
 function getYouTubeId(url) {
   const patterns = [
     /youtube\.com\/watch\?.*v=([A-Za-z0-9_-]{11})/,
@@ -626,6 +607,22 @@ function getInstagramPath(url) {
 
   const type = m[1].toLowerCase() === 'reels' ? 'reel' : m[1].toLowerCase();
   return `${type}/${m[2]}`;
+}
+
+function getOkRuEmbedUrl(url, video) {
+  const clean = String(url || '')
+    .trim()
+    .replace('https://m.ok.ru/video/', 'https://ok.ru/video/')
+    .replace('http://m.ok.ru/video/', 'https://ok.ru/video/')
+    .replace('http://ok.ru/video/', 'https://ok.ru/video/');
+
+  const match = clean.match(/ok\.ru\/video\/(\d+)/i);
+  if (!match) return clean;
+
+  const id = match[1];
+  const start = video.start && video.start > 0 ? Math.floor(video.start) : 0;
+
+  return `https://ok.ru/videoembed/${id}?autoplay=1&fromTime=${start}&quality=hd`;
 }
 
 function buildOrder() {
@@ -762,6 +759,34 @@ function setupTimeCuts(video) {
   }
 }
 
+function forceHighestHlsQuality() {
+  if (!activeHls || !activeHls.levels || !activeHls.levels.length) return;
+
+  let bestLevelIndex = 0;
+  let bestScore = 0;
+
+  activeHls.levels.forEach((level, index) => {
+    const width = level.width || 0;
+    const height = level.height || 0;
+    const bitrate = level.bitrate || 0;
+    const score = (width * height) + bitrate;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestLevelIndex = index;
+    }
+  });
+
+  activeHls.currentLevel = bestLevelIndex;
+  activeHls.nextLevel = bestLevelIndex;
+  activeHls.loadLevel = bestLevelIndex;
+
+  const level = activeHls.levels[bestLevelIndex];
+  const label = level.height ? `${level.height}p` : `${Math.round((level.bitrate || 0) / 1000)} kbps`;
+
+  setInfo(`🎥 HLS em qualidade máxima: ${label}`);
+}
+
 function loadHLSVideo(url) {
   return new Promise((resolve, reject) => {
     if (!window.Hls) {
@@ -783,8 +808,11 @@ function loadHLSVideo(url) {
     activeHls = new Hls({
       debug: false,
       enableWorker: true,
-      maxBufferLength: 20,
-      maxMaxBufferLength: 40
+      capLevelToPlayerSize: false,
+      startLevel: -1,
+      maxBufferLength: 30,
+      maxMaxBufferLength: 60,
+      abrEwmaDefaultEstimate: 10000000
     });
 
     const timeout = setTimeout(() => {
@@ -796,7 +824,12 @@ function loadHLSVideo(url) {
 
     activeHls.on(Hls.Events.MANIFEST_PARSED, () => {
       clearTimeout(timeout);
+      forceHighestHlsQuality();
       resolve();
+    });
+
+    activeHls.on(Hls.Events.LEVEL_LOADED, () => {
+      forceHighestHlsQuality();
     });
 
     activeHls.on(Hls.Events.ERROR, (event, data) => {
@@ -811,6 +844,7 @@ function loadHLSVideo(url) {
 async function safePlayVideo() {
   player.autoplay = true;
   player.playsInline = true;
+  player.preload = 'auto';
 
   try {
     player.muted = !soundEnabled;
@@ -875,6 +909,38 @@ function goNext(reason = '⏭') {
   }, 100);
 }
 
+function setYouTubeMaxQuality() {
+  if (!ytPlayer) return;
+
+  const qualities = [
+    'highres',
+    'hd2160',
+    'hd1440',
+    'hd1080',
+    'hd720',
+    'large',
+    'medium',
+    'small'
+  ];
+
+  try {
+    const available = ytPlayer.getAvailableQualityLevels?.() || [];
+
+    for (const q of qualities) {
+      if (available.includes(q)) {
+        ytPlayer.setPlaybackQuality(q);
+        ytPlayer.setPlaybackQualityRange?.(q, q);
+        setInfo(`▶️ YouTube em qualidade máxima: ${q}`);
+        return;
+      }
+    }
+
+    ytPlayer.setPlaybackQuality('highres');
+  } catch (e) {
+    console.warn('Não foi possível forçar qualidade YouTube:', e);
+  }
+}
+
 async function playYouTube(video, id) {
   return new Promise((resolve) => {
     const start = video.start && video.start > 0 ? Math.floor(video.start) : 0;
@@ -892,7 +958,8 @@ async function playYouTube(video, id) {
         mute: soundEnabled ? 0 : 1,
         playsinline: 1,
         rel: 0,
-        start
+        start,
+        vq: 'highres'
       },
       events: {
         onReady: (event) => {
@@ -910,6 +977,10 @@ async function playYouTube(video, id) {
 
           setInfo(`▶️ YouTube: ${video.note || id}`);
 
+          setTimeout(setYouTubeMaxQuality, 500);
+          setTimeout(setYouTubeMaxQuality, 2000);
+          setTimeout(setYouTubeMaxQuality, 5000);
+
           if (video.end && video.end > 0) {
             const cutDuration = Math.max(1, video.end - (video.start || 0));
             frameTimeout = setTimeout(() => {
@@ -920,6 +991,10 @@ async function playYouTube(video, id) {
           resolve();
         },
         onStateChange: (event) => {
+          if (event.data === YT.PlayerState.PLAYING) {
+            setTimeout(setYouTubeMaxQuality, 500);
+          }
+
           if (event.data === YT.PlayerState.ENDED) {
             goNext('🏁 YouTube terminou');
           }
@@ -994,7 +1069,7 @@ async function playCurrent() {
     }
 
     else if (type === 'okru') {
-      const embedUrl = getOkRuEmbedUrl(video.url);
+      const embedUrl = getOkRuEmbedUrl(video.url, video);
 
       frame.src = embedUrl;
       frame.style.display = 'block';
@@ -1004,7 +1079,7 @@ async function playCurrent() {
       isPlaying = true;
       playBtn.textContent = '⏸ Pausar';
 
-      setInfo(`🟠 OK.ru carregado: ${video.note || embedUrl}`);
+      setInfo(`🟠 OK.ru carregado. Se não iniciar sozinho, clica no play dentro do vídeo.`);
 
       frameTimeout = setTimeout(() => {
         goNext('🟠 OK.ru temporizado');
@@ -1016,11 +1091,13 @@ async function playCurrent() {
       setupTimeCuts(video);
       await safePlayVideo();
 
+      forceHighestHlsQuality();
       setInfo(`🎥 HLS: ${video.note || video.url}`);
     }
 
     else {
       player.src = video.url;
+      player.preload = 'auto';
 
       await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => reject(new Error('Timeout MP4')), 10000);
@@ -1078,6 +1155,7 @@ function ativarSom() {
       ytPlayer.unMute();
       ytPlayer.setVolume(100);
       ytPlayer.playVideo();
+      setYouTubeMaxQuality();
       setInfo('🔊 Som ativado no YouTube');
     } catch(e) {}
   }
@@ -1191,6 +1269,14 @@ player.addEventListener('timeupdate', () => {
 
 document.addEventListener('fullscreenchange', () => {
   document.querySelector('.watermark').style.display = 'block';
+
+  if (ytPlayer) {
+    setTimeout(setYouTubeMaxQuality, 500);
+  }
+
+  if (activeHls) {
+    setTimeout(forceHighestHlsQuality, 500);
+  }
 });
 
 carregarPlaylist().then(() => {
