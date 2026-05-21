@@ -119,6 +119,7 @@ button {
 button.primary { background: #3b82f6; color: white; }
 button.secondary { background: #374151; color: #e5e5e5; }
 button.sound { background: #16a34a; color: white; }
+button.hd { background: #f59e0b; color: #111; }
 
 .secret-icons button {
   font-size: 26px;
@@ -237,13 +238,12 @@ tr.active td { border-color: #3b82f6; }
 
 <h2>
   🎬 Daniboss TV
-  <span class="badge">Firebase · Shuffle · Autoplay · Qualidade Máxima · YouTube · OK.ru · HLS · MP4</span>
+  <span class="badge">Firebase · Shuffle · Autoplay · HD · YouTube · OK.ru · HLS · MP4</span>
 </h2>
 
 <div class="player-container">
   <div id="stage">
     <video id="player" controls playsinline autoplay></video>
-
     <div id="youtubeBox"></div>
 
     <iframe
@@ -265,6 +265,7 @@ tr.active td { border-color: #3b82f6; }
 <div class="controls">
   <button id="playBtn" class="primary">▶ Iniciar</button>
   <button id="soundBtn" class="sound">🔊 Ativar Som</button>
+  <button id="hdBtn" class="hd">⚡ Recarregar HD</button>
   <button id="prevBtn" class="secondary">⏮ Anterior</button>
   <button id="nextBtn" class="secondary">⏭ Próximo</button>
   <button id="fullscreenBtn" class="secondary">⛶ Fullscreen</button>
@@ -276,8 +277,7 @@ tr.active td { border-color: #3b82f6; }
 
 <div class="warn">
   <strong>📌 Notas:</strong>
-  YouTube, MP4 e HLS passam automaticamente no fim real.
-  OK.ru e Instagram ficam no ecrã até trocares manualmente, porque o iframe não permite detetar o fim real do filme.
+  YouTube e HLS tentam qualidade máxima. OK.ru por iframe pode ignorar qualidade HD; este código tenta forçar HD por parâmetros, mas a decisão final é do próprio OK.ru.
 </div>
 
 <div class="secret-icons">
@@ -348,6 +348,7 @@ const frame = document.getElementById('frame');
 const youtubeBox = document.getElementById('youtubeBox');
 const playBtn = document.getElementById('playBtn');
 const soundBtn = document.getElementById('soundBtn');
+const hdBtn = document.getElementById('hdBtn');
 const prevBtn = document.getElementById('prevBtn');
 const nextBtn = document.getElementById('nextBtn');
 const saveBtn = document.getElementById('saveBtn');
@@ -374,6 +375,10 @@ let isLoading = false;
 let isSaving = false;
 let isShuffled = true;
 let soundEnabled = false;
+
+let currentEmbedType = null;
+let currentOkRuBaseUrl = null;
+let currentOkRuReloadCount = 0;
 
 window.onYouTubeIframeAPIReady = function () {};
 
@@ -609,7 +614,7 @@ function getInstagramPath(url) {
   return `${type}/${m[2]}`;
 }
 
-function getOkRuEmbedUrl(url, video) {
+function getOkRuId(url) {
   const clean = String(url || '')
     .trim()
     .replace('https://m.ok.ru/video/', 'https://ok.ru/video/')
@@ -617,12 +622,33 @@ function getOkRuEmbedUrl(url, video) {
     .replace('http://ok.ru/video/', 'https://ok.ru/video/');
 
   const match = clean.match(/ok\.ru\/video\/(\d+)/i);
-  if (!match) return clean;
+  return match ? match[1] : null;
+}
 
-  const id = match[1];
-  const start = video.start && video.start > 0 ? Math.floor(video.start) : 0;
+function getOkRuEmbedUrl(url, video, reloadVersion = 0) {
+  const id = getOkRuId(url);
 
-  return `https://ok.ru/videoembed/${id}?autoplay=1&fromTime=${start}&quality=hd`;
+  if (!id) return url;
+
+  const start = video && video.start && video.start > 0 ? Math.floor(video.start) : 0;
+
+  const params = new URLSearchParams({
+    autoplay: '1',
+    autoPlay: '1',
+    fromTime: String(start),
+    t: String(start),
+    quality: 'hd',
+    q: 'hd',
+    vq: 'hd',
+    hd: '1',
+    nochat: '1',
+    noAds: '1',
+    rel: '0',
+    rnd: String(Date.now()),
+    reload: String(reloadVersion)
+  });
+
+  return `https://ok.ru/videoembed/${id}?${params.toString()}`;
 }
 
 function buildOrder() {
@@ -701,6 +727,9 @@ function clearPlayback() {
   stopWatchdog();
 
   isPlaying = false;
+  currentEmbedType = null;
+  currentOkRuBaseUrl = null;
+  currentOkRuReloadCount = 0;
 
   if (frameTimeout) {
     clearTimeout(frameTimeout);
@@ -994,6 +1023,37 @@ async function playYouTube(video, id) {
   });
 }
 
+function reloadOkRuHD() {
+  if (currentEmbedType !== 'okru' || !currentOkRuBaseUrl) {
+    if (activeHls) {
+      forceHighestHlsQuality();
+      setInfo('⚡ HLS colocado na maior qualidade disponível.');
+      return;
+    }
+
+    if (ytPlayer) {
+      setYouTubeMaxQuality();
+      setInfo('⚡ YouTube tentou qualidade máxima.');
+      return;
+    }
+
+    setInfo('⚡ Este vídeo não permite recarregar HD por iframe.', true);
+    return;
+  }
+
+  currentOkRuReloadCount++;
+
+  const currentVideo = videos[order[currentPos]];
+  const newUrl = getOkRuEmbedUrl(currentOkRuBaseUrl, currentVideo, currentOkRuReloadCount);
+
+  frame.src = 'about:blank';
+
+  setTimeout(() => {
+    frame.src = newUrl;
+    setInfo('⚡ OK.ru recarregado a tentar HD. Se continuar baixa qualidade, é limitação do próprio OK.ru.');
+  }, 250);
+}
+
 async function playCurrent() {
   if (isLoading) return;
 
@@ -1029,6 +1089,8 @@ async function playCurrent() {
       const instaPath = getInstagramPath(video.url);
       if (!instaPath) throw new Error('Instagram inválido');
 
+      currentEmbedType = 'instagram';
+
       frame.src = `https://www.instagram.com/${instaPath}/embed`;
       frame.style.display = 'block';
       player.style.display = 'none';
@@ -1037,11 +1099,15 @@ async function playCurrent() {
       isPlaying = true;
       playBtn.textContent = '⏸ Pausar';
 
-      setInfo(`📸 Instagram carregado. Fica até trocares manualmente.`);
+      setInfo('📸 Instagram carregado. Fica até trocares manualmente.');
     }
 
     else if (type === 'okru') {
-      const embedUrl = getOkRuEmbedUrl(video.url, video);
+      const embedUrl = getOkRuEmbedUrl(video.url, video, 0);
+
+      currentEmbedType = 'okru';
+      currentOkRuBaseUrl = video.url;
+      currentOkRuReloadCount = 0;
 
       frame.src = embedUrl;
       frame.style.display = 'block';
@@ -1051,7 +1117,7 @@ async function playCurrent() {
       isPlaying = true;
       playBtn.textContent = '⏸ Pausar';
 
-      setInfo(`🟠 OK.ru carregado. Fica até trocares manualmente.`);
+      setInfo('🟠 OK.ru carregado a tentar HD. Se aparecer baixa qualidade, clica em ⚡ Recarregar HD.');
     }
 
     else if (type === 'hls') {
@@ -1168,6 +1234,7 @@ playBtn.addEventListener('click', () => {
 });
 
 soundBtn.addEventListener('click', ativarSom);
+hdBtn.addEventListener('click', reloadOkRuHD);
 nextBtn.addEventListener('click', nextVideo);
 prevBtn.addEventListener('click', prevVideo);
 saveBtn.addEventListener('click', salvarPlaylist);
